@@ -20,7 +20,12 @@ async function login(page: Page, who = OWNER) {
   await page.getByLabel("Email").fill(who.email);
   await page.getByLabel("Пароль").fill(who.password);
   await page.getByRole("button", { name: "Войти" }).click();
-  await page.waitForURL("**/app");
+  // Либо переход в кабинет, либо понятная ошибка формы — её текст попадёт в отчёт
+  const err = page.getByTestId("login-error");
+  await expect(async () => {
+    if (await err.isVisible()) throw new Error(`login error: ${await err.innerText()}`);
+    expect(page.url()).toMatch(/\/app$/);
+  }).toPass({ timeout: 20_000 });
 }
 
 /** Supabase под JWT пользователя: та же RLS, что у кабинета */

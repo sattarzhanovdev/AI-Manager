@@ -4,10 +4,14 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { env } from "../env";
 
+/** Токены сессии недоступны JS страницы: браузерный клиент Supabase в кабинете не используется */
+export const SESSION_COOKIE = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+
 /** Клиент с JWT пользователя — по умолчанию для всех запросов кабинета (RLS работает) */
 export async function createServerSupabase() {
   const store = await cookies();
   return createServerClient(env.SUPABASE_URL!, env.SUPABASE_ANON_KEY!, {
+    cookieOptions: SESSION_COOKIE,
     cookies: {
       getAll: () => store.getAll(),
       setAll: (list) => {

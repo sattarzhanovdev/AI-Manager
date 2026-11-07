@@ -105,7 +105,8 @@ function confirmText(req: LeadRequest, lead: CreatedLead): string {
 async function offlineTurn(snap: KbSnapshot, message: string, prev: DialogState, channel: "voice" | "chat", makeLead: (r: LeadRequest) => Promise<CreatedLead>) {
   const r = respondOffline(snap, message, prev, { channel, mode: "consult", phase: "1a" });
   const state = r.state;
-  let text = r.text;
+  // В веб-демо соединения со звонком нет: «соединяю» заменяем на честное «передам»
+  let text = r.text.replace(/соединяю с администратором\.?/i, "передам ваш вопрос администратору.");
   let lead: CreatedLead | undefined;
   let req: LeadRequest | undefined;
   const leadCall = r.toolCalls.find((t) => t.name === "create_lead" && t.status === "ok");

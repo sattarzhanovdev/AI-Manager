@@ -27,6 +27,8 @@ export async function proxy(req: NextRequest) {
   const key = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return isProtected(path) ? toLogin(req) : res;
   const sb = createServerClient(url, key, {
+    // Те же параметры cookie, что в lib/supabase/server.ts (httpOnly: токены недоступны JS страницы)
+    cookieOptions: { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" },
     cookies: {
       getAll: () => req.cookies.getAll(),
       setAll: (list) => {

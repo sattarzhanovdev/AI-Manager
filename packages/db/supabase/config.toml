@@ -6,7 +6,7 @@ schemas = ["public", "graphql_public"]
 
 [db]
 port = 54322
-major_version = 15
+major_version = 17
 
 [realtime]
 enabled = true
@@ -15,6 +15,12 @@ enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
 jwt_expiry = 900
+# Регистрация закрыта: аккаунты создаёт provisioning-скрипт через Admin API
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
 
 [auth.hook.custom_access_token]
 enabled = true

@@ -1,29 +1,5 @@
 -- RPC для голоса, воркеров и кабинета. Сервисные RPC принимают явный p_company_id.
 
--- Голос: в начале звонка определяет компанию и режим по номеру
-create or replace function public.resolve_number(p_e164 text) returns jsonb
-language sql stable security definer set search_path = '' as $$
-  select jsonb_build_object(
-    'company_id', n.company_id,
-    'number_id', n.id,
-    'branch_id', n.branch_id,
-    'ai_mode', case when c.ai_mode = 'on' then n.ai_mode else c.ai_mode end,
-    'schedule', n.schedule,
-    'timezone', c.timezone,
-    'kb_version', (select max(s.version) from public.kb_snapshots s where s.company_id = n.company_id),
-    'limits', public.check_limits(n.company_id))
-  from public.phone_numbers n join public.companies c on c.id = n.company_id
-  where n.e164 = p_e164 and c.status = 'active'
-$$;
-
-create or replace function public.get_snapshot(p_company_id uuid, p_version int default null) returns jsonb
-language sql stable security definer set search_path = '' as $$
-  select s.payload from public.kb_snapshots s
-   where s.company_id = p_company_id
-     and (p_version is null or s.version = p_version)
-   order by s.version desc limit 1
-$$;
-
 -- Остаток лимитов за текущий период
 create or replace function public.check_limits(p_company_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
@@ -50,6 +26,30 @@ begin
     'ratio', case when v_total > 0 then round(v_used / v_total, 3) else 1 end,
     'overage_policy', v_sub.overage_policy);
 end $$;
+
+-- Голос: в начале звонка определяет компанию и режим по номеру
+create or replace function public.resolve_number(p_e164 text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'company_id', n.company_id,
+    'number_id', n.id,
+    'branch_id', n.branch_id,
+    'ai_mode', case when c.ai_mode = 'on' then n.ai_mode else c.ai_mode end,
+    'schedule', n.schedule,
+    'timezone', c.timezone,
+    'kb_version', (select max(s.version) from public.kb_snapshots s where s.company_id = n.company_id),
+    'limits', public.check_limits(n.company_id))
+  from public.phone_numbers n join public.companies c on c.id = n.company_id
+  where n.e164 = p_e164 and c.status = 'active'
+$$;
+
+create or replace function public.get_snapshot(p_company_id uuid, p_version int default null) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select s.payload from public.kb_snapshots s
+   where s.company_id = p_company_id
+     and (p_version is null or s.version = p_version)
+   order by s.version desc limit 1
+$$;
 
 -- Создание заявки из голоса/чата/кабинета. Идемпотентно по p_idempotency_key.
 create or replace function public.create_lead(p_company_id uuid, p_payload jsonb, p_idempotency_key text default null)

@@ -44,7 +44,7 @@ export function Overview({ data, members, integrationCount, me, mvp = false, can
           <Kpi label={t("kpiNewLeads")} value={k.newLeads} hint={t("withoutOwner")} href="/app/leads?view=new" />
           <Kpi label={t("kpiMissed")} value={k.missed} hint={k.missedReason} href="/app/calls?view=missed" />
           {mvp ? (
-            <Kpi label={tm("kpiProcessed")} value={data.leadStats.processed} hint={`${tm("kpiLeadsTotal")}: ${data.leadStats.total} · ${tm("kpiLeadsToday", { count: data.leadStats.today })}`} href="/app/leads" />
+            <Kpi label={tm("kpiProcessed")} value={data.leadStats.processed} hint={`${tm("kpiLeadsTotal")}: ${data.leadStats.total}`} href="/app/leads" />
           ) : (
             <Kpi label={t("kpiMinutes")} value={fmtInt(k.minutesLeft)} hint={t("forecast", { count: fmtInt(k.minutesForecast) })} href="/app/billing" />
           )}
@@ -113,8 +113,8 @@ export function Overview({ data, members, integrationCount, me, mvp = false, can
             </Panel>
             {mvp ? (
               <>
-                <Panel title={tm("leadsByStatus")} aside={<Link href="/app/leads" className="text-xs text-fg-muted hover:text-fg">{tm("kpiLeadsTotal")}: <span className="tabular-nums">{data.leadStats.total}</span></Link>}>
-                  <ul className="flex flex-col gap-1.5 p-3" data-testid="leads-by-status">
+                <Panel className="shrink-0" title={tm("leadsByStatus")} aside={<Link href="/app/leads" className="text-xs text-fg-muted hover:text-fg">{tm("kpiLeadsTotal")}: <span className="tabular-nums">{data.leadStats.total}</span></Link>}>
+                  <ul className="flex flex-col gap-1 px-3 py-2" data-testid="leads-by-status">
                     {STATUSES.map((st) => {
                       const v = data.leadStats.byStatus[st];
                       return (
@@ -127,12 +127,12 @@ export function Overview({ data, members, integrationCount, me, mvp = false, can
                     })}
                   </ul>
                 </Panel>
-                <Panel title={tm("recentActions")} bodyClassName="overflow-auto">
+                <Panel className="min-h-0 flex-1" title={tm("recentActions")} bodyClassName="overflow-auto">
                   {data.recent.length === 0 ? <EmptyState title={tm("recentEmpty")} /> : (
                     <ul data-testid="recent-actions">
                       {data.recent.map((e) => (
                         <li key={e.id} className="flex h-8 items-center gap-2 border-b border-line px-3 text-[13px] last:border-b-0">
-                          <span className="w-16 shrink-0 text-xs text-fg-faint">{relativeTime(e.createdAt)}</span>
+                          <span className="w-24 shrink-0 truncate whitespace-nowrap text-xs text-fg-faint">{relativeTime(e.createdAt)}</span>
                           <span className="shrink-0 text-xs text-fg-muted">{e.actorKind === "ai" ? tl("ai") : e.actorKind === "system" ? tl("system") : members.find((m) => m.userId === e.actorId)?.name ?? "—"}</span>
                           <span className="shrink-0 text-xs text-fg-secondary">{tl(`events.${e.action}`)}{e.action === "status" ? ` → ${te(`leadStatus.${String(e.after)}` as "leadStatus.new")}` : ""}</span>
                           <Link href={`/app/leads?open=${e.leadId}`} className="min-w-0 flex-1 truncate hover:underline"><span className="tabular-nums text-fg-faint">#{e.leadNumber}</span> {e.leadTitle}</Link>

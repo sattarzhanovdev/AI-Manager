@@ -49,8 +49,8 @@ export function AssistantView({ settings, numbers, plan, members, canEdit, autoT
         {Object.keys(dirty).length > 0 && <span className="text-xs text-fg-muted">{Object.keys(dirty).length} изменений</span>}
         <Button size="sm" variant="primary" loading={pending} disabled={!canEdit || !Object.keys(dirty).length || !disclosureOk} onClick={save}>{tc("save")}</Button>
       </PageHeader>
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="min-h-0 overflow-y-auto">
+      <div className="grid min-h-0 flex-1 grid-cols-1 max-lg:overflow-y-auto lg:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="min-h-0 lg:overflow-y-auto">
           <fieldset disabled={!canEdit} className="contents">
             <section className={section}>
               <h2 className={h}>{t("voice")}</h2>
@@ -157,7 +157,8 @@ export function AssistantView({ settings, numbers, plan, members, canEdit, autoT
             </section>
           </fieldset>
         </div>
-        <aside className="flex min-h-0 flex-col border-l border-line max-lg:border-l-0 max-lg:border-t">
+        {/* На телефоне тест AI — первым: это главный сценарий демо */}
+        <aside className="flex min-h-0 flex-col border-l border-line max-lg:order-first max-lg:h-[78dvh] max-lg:border-b max-lg:border-l-0">
           <TestCall greeting={s.greeting} autoStart={autoTest} voiceRate={s.speed} engine={engine} />
         </aside>
       </div>

@@ -169,9 +169,9 @@ export function TestCall({ greeting, autoStart, voiceRate = 1, title, engine = {
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="test-call">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-        <h2 className="flex-1 text-[13px] font-medium">{title ?? t("testAi")}</h2>
+        <h2 className="min-w-0 flex-1 truncate text-[13px] font-medium">{title ?? t("testAi")}</h2>
         <Tooltip content={eng.engine === "llm" ? eng.model ?? "" : t("engineOfflineHint")}>
-          <span data-testid="ai-engine" className={cn("inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px]", eng.engine === "llm" ? "border-line-strong text-fg-secondary" : "border-warning/40 text-warning")}>
+          <span data-testid="ai-engine" className={cn("inline-flex h-6 max-w-[62%] shrink-0 items-center gap-1 truncate whitespace-nowrap rounded-full border px-2 text-[11px]", eng.engine === "llm" ? "border-line-strong text-fg-secondary" : "border-warning/40 text-warning")}>
             {eng.engine === "llm" ? <Bot className="size-3" /> : <Cpu className="size-3" />}
             {eng.mock ? t("engineMock") : eng.engine === "llm" ? t("engineLlm", { model: eng.model ?? "LLM" }) : t("engineOffline")}
           </span>

@@ -33,10 +33,11 @@ function uid(name: string): string {
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 const HOUR = 60, DAY = 24 * 60;
 
-async function must<T>(p: PromiseLike<{ data: T; error: { message: string } | null }>, what: string): Promise<T> {
+type Res = { data: unknown; error: { message: string } | null };
+async function must<R extends Res>(p: PromiseLike<R>, what: string): Promise<NonNullable<Extract<R, { error: null }>["data"]>> {
   const r = await p;
   if (r.error) throw new Error(`${what}: ${r.error.message}`);
-  return r.data;
+  return r.data as NonNullable<Extract<R, { error: null }>["data"]>;
 }
 /** Вставка только отсутствующих строк: существующие (в т.ч. изменённые в кабинете) не трогаем */
 async function insertMissing(table: string, rows: Record<string, unknown>[], onConflict = "id") {

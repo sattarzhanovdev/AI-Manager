@@ -61,7 +61,7 @@ jobs:
         working-directory: packages/db
         run: |
           eval "$(supabase status -o env)"
-          OWNER_PW="$(openssl rand -base64 18)"; STAFF_PW="$(openssl rand -base64 18)"
+          OWNER_PW="Own-$(openssl rand -hex 12)"; STAFF_PW="Stf-$(openssl rand -hex 12)"
           echo "::add-mask::$OWNER_PW"; echo "::add-mask::$STAFF_PW"
           {
             echo "SUPABASE_URL=$API_URL"
@@ -92,7 +92,7 @@ jobs:
         run: pnpm e2e
       - name: Server log
         if: always()
-        run: cat next.log || true
+        run: grep -E "\[auth\]|\[action\]|\[ai\]|Error" next.log | head -40 || true
       - uses: actions/upload-artifact@v4
         if: failure()
         with: { name: playwright-report, path: apps/web/test-results, retention-days: 7 }

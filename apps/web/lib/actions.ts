@@ -878,6 +878,7 @@ export async function loginWithPassword(input: z.input<typeof credentials>): Pro
     const sb = await createServerSupabase();
     const { data, error } = await sb.auth.signInWithPassword(v.data);
     if (error || !data.user) {
+      console.error(`[auth] sign-in failed status=${error?.status ?? "-"} code=${error?.code ?? "-"}`);
       if (error?.status === 429) throw new UserError("Слишком много попыток входа. Подождите минуту.");
       throw new UserError("Неверный email или пароль.");
     }

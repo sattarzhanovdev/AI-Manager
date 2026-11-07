@@ -1,0 +1,117 @@
+/*
+ * ALL-менеджер — дизайн-токены.
+ * Визуальный язык: docs/design.md (Dimension: тёмный холст, хейрлайны, пилюли, монохром + один фиолетовый градиент).
+ * Плотность и роли токенов: docs/промпт.pdf, раздел 03.
+ * Компоненты используют только эти переменные.
+ */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #0a0a0a;          /* Void Canvas — фон приложения */
+  --bg: #0f0f0f;              /* панели, таблицы */
+  --bg-subtle: #141414;       /* шапки таблиц, вторичные зоны */
+  --bg-elevated: #161616;     /* Graphite — поповеры, sheet, нав */
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-active: rgba(255, 255, 255, 0.07);
+  --bg-selected: rgba(255, 255, 255, 0.06);
+  --glass: rgba(212, 212, 212, 0.08); /* Frosted Glass */
+  --border: rgba(229, 229, 229, 0.09);  /* хейрлайн */
+  --border-strong: rgba(229, 229, 229, 0.16);
+  --text: #ededed;            /* Bone */
+  --text-secondary: #c2c2c2;  /* Ash */
+  --text-muted: #8f8f8f;
+  --text-faint: #686868;      /* Slate */
+  --accent: #ffffff;          /* главное действие — белая пилюля */
+  --accent-fg: #161616;
+  --accent-hover: #e6e6e6;
+  --focus: rgba(255, 255, 255, 0.55);
+  --violet: #6b62f2;          /* только градиенты */
+  --glow-violet: linear-gradient(90deg, transparent, transparent 40%, rgba(107, 98, 242, 0.565) 50%, transparent 60%, transparent);
+
+  --success: #3ccb7f;
+  --success-bg: rgba(60, 203, 127, 0.12);
+  --warning: #f5a524;
+  --warning-bg: rgba(245, 165, 36, 0.12);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.12);
+  --info: #8fb3ff;
+  --info-bg: rgba(143, 179, 255, 0.12);
+  --neutral-bg: rgba(255, 255, 255, 0.07);
+
+  --shadow-pop: 0 0 0 1px var(--border-strong), 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-subtle: rgba(255, 255, 255, 0.1) 0 0 0 1px inset;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-app: #f6f6f6;
+  --bg: #ffffff;
+  --bg-subtle: #f9f9f9;
+  --bg-elevated: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.035);
+  --bg-active: rgba(0, 0, 0, 0.06);
+  --bg-selected: rgba(0, 0, 0, 0.045);
+  --glass: rgba(22, 22, 22, 0.04);
+  --border: #e5e5e5;          /* Hairline */
+  --border-strong: #d4d4d4;
+  --text: #161616;
+  --text-secondary: #3d3d3d;
+  --text-muted: #646464;
+  --text-faint: #8f8f8f;
+  --accent: #161616;          /* в светлой теме пилюля — чёрная */
+  --accent-fg: #ffffff;
+  --accent-hover: #2c2c2c;
+  --focus: rgba(22, 22, 22, 0.55);
+
+  --success: #12a150;
+  --success-bg: rgba(18, 161, 80, 0.1);
+  --warning: #b45309;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --info: #2f6fdb;
+  --info-bg: rgba(47, 111, 219, 0.08);
+  --neutral-bg: rgba(0, 0, 0, 0.05);
+
+  --shadow-pop: 0 0 0 1px var(--border), 0 10px 30px rgba(0, 0, 0, 0.1);
+  --shadow-subtle: rgba(0, 0, 0, 0.06) 0 0 0 1px inset;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg-app: #f6f6f6; --bg: #ffffff; --bg-subtle: #f9f9f9; --bg-elevated: #ffffff;
+    --bg-hover: rgba(0, 0, 0, 0.035); --bg-active: rgba(0, 0, 0, 0.06); --bg-selected: rgba(0, 0, 0, 0.045);
+    --glass: rgba(22, 22, 22, 0.04); --border: #e5e5e5; --border-strong: #d4d4d4;
+    --text: #161616; --text-secondary: #3d3d3d; --text-muted: #646464; --text-faint: #8f8f8f;
+    --accent: #161616; --accent-fg: #ffffff; --accent-hover: #2c2c2c; --focus: rgba(22, 22, 22, 0.55);
+    --success: #12a150; --success-bg: rgba(18, 161, 80, 0.1); --warning: #b45309; --warning-bg: rgba(217, 119, 6, 0.1);
+    --danger: #dc2626; --danger-bg: rgba(220, 38, 38, 0.08); --info: #2f6fdb; --info-bg: rgba(47, 111, 219, 0.08);
+    --neutral-bg: rgba(0, 0, 0, 0.05);
+    --shadow-pop: 0 0 0 1px var(--border), 0 10px 30px rgba(0, 0, 0, 0.1);
+  }
+}
+
+:root {
+  /* Размеры (раздел 03) */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --leading-sm: 20px;
+  --text-title: 16px;
+  --row-h: 32px;
+  --row-h-compact: 28px;
+  --row-h-comfy: 40px;
+  --control-h: 32px;
+  --control-h-sm: 28px;
+  --radius-ui: 10px;          /* поля */
+  --radius-panel: 12px;
+  --radius-icon: 4px;
+  --radius-pill: 9999px;      /* кнопки, чипсы, статусы */
+  --nav-w: 224px;
+  --nav-w-collapsed: 56px;
+  --topbar-h: 44px;
+
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-geist), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}

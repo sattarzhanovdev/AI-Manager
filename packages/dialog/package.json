@@ -1,0 +1,23 @@
+{
+  "name": "@all/dialog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "gen:prompt": "node scripts/gen-prompt.mjs",
+    "test": "vitest run",
+    "eval": "tsx ../../eval/run.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "gen:tools": "tsx scripts/gen-tools.mjs"
+  },
+  "dependencies": {
+    "@all/db": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "4.1.12",
+    "tsx": "4.23.15",
+    "@types/node": "24.19.2"
+  }
+}

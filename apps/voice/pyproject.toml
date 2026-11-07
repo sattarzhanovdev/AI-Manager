@@ -1,0 +1,19 @@
+[project]
+name = "allvoice"
+version = "0.1.0"
+description = "ALL-менеджер: голосовой сервис (LiveKit Agents)"
+requires-python = ">=3.12"
+dependencies = [
+  "livekit-agents[silero,turn-detector,deepgram,openai,cartesia]~=1.2",
+  "livekit-api~=1.0",
+  "redis~=5.2",
+  "httpx~=0.28",
+  "pydantic-settings~=2.6",
+  "langfuse~=2.60",
+]
+
+[project.optional-dependencies]
+dev = ["pytest~=8.3"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

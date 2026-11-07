@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@import "@all/ui/tokens.css";
+
+@source "../../../packages/ui/src";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme inline {
+  --color-app: var(--bg-app);
+  --color-bg: var(--bg);
+  --color-bg-app: var(--bg-app);
+  --color-subtle: var(--bg-subtle);
+  --color-elevated: var(--bg-elevated);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-selected: var(--bg-selected);
+  --color-glass: var(--glass);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-neutral: var(--neutral-bg);
+  --color-violet: var(--violet);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  html, body { height: 100%; }
+  body {
+    background: var(--bg-app);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01";
+  }
+  * { border-color: var(--border); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; border-radius: 4px; }
+  ::selection { background: rgba(107, 98, 242, 0.35); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 9999px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+@keyframes flash {
+  0% { background-color: rgba(107, 98, 242, 0.22); }
+  100% { background-color: transparent; }
+}
+@keyframes live {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* Фиолетовая подсветка — единственный хроматический акцент, только градиентом */
+.glow-line { background: var(--glow-violet); height: 1px; }
+.live-dot { animation: live 1.6s ease-in-out infinite; }
+
+/* Тёплый→холодный горизонт — только публичные страницы */
+.hero-horizon {
+  background:
+    radial-gradient(120% 90% at 0% 100%, rgba(255, 153, 102, 0.55) 0%, transparent 55%),
+    radial-gradient(90% 80% at 100% 0%, rgba(37, 99, 235, 0.65) 0%, transparent 60%),
+    linear-gradient(100deg, #c2410c 0%, #b4536a 30%, #5b4bd1 62%, #1d4ed8 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

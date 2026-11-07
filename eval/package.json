@@ -1,0 +1,9 @@
+{
+  "name": "@all/eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "eval": "tsx run.ts" },
+  "dependencies": { "@all/dialog": "workspace:*" },
+  "devDependencies": { "tsx": "4.23.15", "@types/node": "24.19.2" }
+}

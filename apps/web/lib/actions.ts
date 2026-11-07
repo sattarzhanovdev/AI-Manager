@@ -9,7 +9,12 @@ import type { AiMode, Faq, Lead, MemberRole, Service, StaffMember } from "@all/d
 import { requireSession, startMockSession, endSession, type Session } from "./auth";
 import { can, type Action } from "./permissions";
 import { toE164 } from "./format";
-import { db, emit, draftSnapshot, newPublishedSnapshot, patchLead, addLeadEvent, setAiModeInternal } from "./data/mock/store";
+import { isSupabase, mockAuthAllowed } from "./env";
+import { db, emit, draftSnapshot, newPublishedSnapshot, patchLead, addLeadEvent, setAiModeInternal, publishedSnapshot } from "./data/mock/store";
+import * as sbm from "./data/sb/mutations";
+import { KbError, draftSnapshot as sbDraftSnapshot } from "./data/sb/kb";
+import { createServerSupabase } from "./supabase/server";
+import { assistantTurn, TurnError, type TurnReply } from "./ai/turn";
 
 export type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string; fields?: string[] };
 
@@ -33,7 +38,11 @@ async function run<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
   } catch (e) {
     if (e instanceof Forbidden) return { ok: false, error: "Недостаточно прав. Обратитесь к собственнику компании." };
     if (e instanceof z.ZodError) return { ok: false, error: "Проверьте заполнение полей.", fields: e.issues.map((i) => i.path.join(".")) };
-    if (e instanceof UserError) return { ok: false, error: e.message };
+    if (e instanceof UserError || e instanceof KbError || e instanceof TurnError) return { ok: false, error: e.message };
+    if (e instanceof sbm.MutationError) {
+      if (e.code === "42501") return { ok: false, error: "Недостаточно прав. Обратитесь к собственнику компании." };
+      if (!e.code || e.code === "23505") return { ok: false, error: e.message };
+    }
     const requestId = rid();
     console.error(`[action] request_id=${requestId}`, e instanceof Error ? e.message : "unknown");
     return { ok: false, error: `Не получилось сохранить. Повторите или напишите в поддержку, код ${requestId}.` };
@@ -41,12 +50,18 @@ async function run<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
 }
 class UserError extends Error {}
 
+/** Разделы, не подключённые к базе в Hackathon MVP, не изображают успех */
+function notInMvp() {
+  if (isSupabase) throw new UserError("Недоступно в демо-версии MVP: раздел не подключён к базе.");
+}
+
 // ───────────── Переключатель AI ─────────────
 const aiMode = z.enum(["on", "leads_only", "all_human", "off"]);
 export async function setAiMode(mode: AiMode) {
   return run(async () => {
     const s = await guard("toggle_ai");
     const m = aiMode.parse(mode);
+    if (isSupabase) { await sbm.setAiMode(s, m); revalidatePath("/app", "layout"); return; }
     const before = db.company.aiMode;
     setAiModeInternal(m);
     audit(s, "ai_mode", "Компания", `${before} → ${m}`);
@@ -69,6 +84,12 @@ export async function updateLead(id: string, patch: z.input<typeof leadPatch>) {
   return run(async () => {
     const s = await guard("edit_leads");
     const p = leadPatch.parse(patch);
+    if (isSupabase) {
+      if (s.member.role === "staff" && p.assigneeId && p.assigneeId !== s.userId) throw new Forbidden();
+      const l = await sbm.updateLead(s, z.string().uuid().parse(id), p);
+      if (!l) throw new UserError("Заявка не найдена или недоступна.");
+      return l;
+    }
     const lead = db.leads.find((l) => l.id === id);
     if (!lead) throw new UserError("Заявка не найдена или недоступна.");
     if (s.member.role === "staff" && lead.assigneeId && lead.assigneeId !== s.userId) throw new Forbidden();
@@ -83,6 +104,12 @@ export async function bulkUpdateLeads(ids: string[], patch: z.input<typeof leadP
     const s = await guard("edit_leads");
     const p = leadPatch.parse(patch);
     z.array(z.string()).max(500).parse(ids);
+    if (isSupabase) {
+      if (s.member.role === "staff" && p.assigneeId && p.assigneeId !== s.userId) throw new Forbidden();
+      let n = 0;
+      for (const id of z.array(z.string().uuid()).parse(ids)) if (await sbm.updateLead(s, id, p, true)) n++;
+      return n;
+    }
     for (const id of ids) {
       const lead = db.leads.find((l) => l.id === id);
       if (!lead) continue;
@@ -99,6 +126,7 @@ export async function commentLead(id: string, text: string) {
   return run(async () => {
     const s = await guard("edit_leads");
     const body = z.string().trim().min(1).max(2000).parse(text);
+    if (isSupabase) { await sbm.commentLead(s, z.string().uuid().parse(id), body); return; }
     const mentions = db.members.filter((m) => body.includes(`@${m.name.split(" ")[0]}`)).map((m) => m.userId);
     addLeadEvent({ leadId: id, actorId: s.userId, actorKind: "user", action: "comment", comment: body });
     for (const uid of mentions) {
@@ -123,6 +151,7 @@ export async function createLead(input: z.input<typeof newLead>) {
     const v = newLead.parse(input);
     const phone = toE164(v.phone);
     if (!phone) throw new UserError("Телефон указан неверно. Пример: +996 555 123 456");
+    if (isSupabase) return sbm.createLead(s, { ...v, phone, sourceCallId: v.sourceCallId ? z.string().uuid().parse(v.sourceCallId) : undefined });
     let contact = db.contacts.find((c) => c.phone === phone);
     if (!contact) {
       contact = { id: `ct_${rid()}`, phone, name: v.name, channels: ["phone"], tags: [], lastSeenAt: new Date().toISOString(), interactionsCount: 0, createdAt: new Date().toISOString() };
@@ -146,7 +175,12 @@ export async function createLead(input: z.input<typeof newLead>) {
 // ───────────── Звонки ─────────────
 export async function rateCall(id: string, rating: -1 | 1, reason?: string) {
   return run(async () => {
-    await guard("listen_audio");
+    const s = await guard("listen_audio");
+    if (isSupabase) {
+      const r = z.union([z.literal(-1), z.literal(1)]).parse(rating);
+      await sbm.updateCall(s, z.string().uuid().parse(id), { rating: r, rating_reason: r === -1 ? z.string().min(2).max(200).parse(reason) : null });
+      return;
+    }
     const c = db.calls.find((x) => x.id === id);
     if (!c) throw new UserError("Звонок не найден.");
     c.rating = z.union([z.literal(-1), z.literal(1)]).parse(rating);
@@ -161,7 +195,8 @@ export async function rateCall(id: string, rating: -1 | 1, reason?: string) {
 
 export async function markCallback(id: string) {
   return run(async () => {
-    await guard("edit_leads");
+    const s = await guard("edit_leads");
+    if (isSupabase) { await sbm.updateCall(s, z.string().uuid().parse(id), { callback_done_at: new Date().toISOString() }); return; }
     const c = db.calls.find((x) => x.id === id);
     if (!c) throw new UserError("Звонок не найден.");
     c.callbackDoneAt = new Date().toISOString();
@@ -172,8 +207,12 @@ export async function markCallback(id: string) {
 const contactPatch = z.object({ name: z.string().trim().max(100).optional(), phone: z.string().optional(), notes: z.string().max(2000).optional(), tags: z.array(z.string().max(30)).max(20).optional() });
 export async function updateContact(id: string, patch: z.input<typeof contactPatch>) {
   return run(async () => {
-    await guard("edit_leads");
+    const s = await guard("edit_leads");
     const p = contactPatch.parse(patch);
+    if (isSupabase) {
+      if (p.phone !== undefined) { const e = toE164(p.phone); if (!e) throw new UserError("Телефон указан неверно."); p.phone = e; }
+      return sbm.updateContact(s, z.string().uuid().parse(id), p);
+    }
     const c = db.contacts.find((x) => x.id === id);
     if (!c) throw new UserError("Контакт не найден.");
     if (p.phone !== undefined) {
@@ -190,9 +229,10 @@ export async function updateContact(id: string, patch: z.input<typeof contactPat
 
 export async function createContact(input: { name?: string; phone: string }) {
   return run(async () => {
-    await guard("edit_leads");
+    const s = await guard("edit_leads");
     const e = toE164(z.string().parse(input.phone));
     if (!e) throw new UserError("Телефон указан неверно. Пример: +996 555 123 456");
+    if (isSupabase) return sbm.createContact(s, e, z.string().trim().max(100).optional().parse(input.name));
     const dupe = db.contacts.find((x) => x.phone === e);
     if (dupe) return dupe;
     const c = { id: `ct_${rid()}`, phone: e, name: input.name?.trim() || undefined, channels: ["phone"], tags: [], lastSeenAt: new Date().toISOString(), interactionsCount: 0, createdAt: new Date().toISOString() };
@@ -204,6 +244,7 @@ export async function createContact(input: { name?: string; phone: string }) {
 export async function mergeContacts(primaryId: string, otherIds: string[]) {
   return run(async () => {
     const s = await guard("edit_leads");
+    notInMvp();
     const primary = db.contacts.find((c) => c.id === primaryId);
     if (!primary) throw new UserError("Контакт не найден.");
     for (const oid of otherIds) {
@@ -225,6 +266,7 @@ export async function mergeContacts(primaryId: string, otherIds: string[]) {
 export async function eraseContact(id: string) {
   return run(async () => {
     const s = await guard("export_delete");
+    if (isSupabase) { await sbm.eraseContact(s, z.string().uuid().parse(id)); return; }
     const c = db.contacts.find((x) => x.id === id);
     if (!c) throw new UserError("Контакт не найден.");
     for (const call of db.calls.filter((x) => x.contactId === id)) {
@@ -244,9 +286,14 @@ async function guardKb() {
 
 export async function setField(key: string, value: unknown) {
   return run(async () => {
-    await guardKb();
+    const s = await guardKb();
     z.string().regex(/^[a-z_]+\.[a-z_]+$/).parse(key);
     const v = z.union([z.string().max(5000), z.record(z.string(), z.unknown()), z.array(z.string()), z.null()]).parse(value);
+    if (isSupabase) {
+      await sbm.setField(s, key, v);
+      const q = await (await import("./data/sb/repo")).getQuestionnaire(s);
+      return { completeness: q.draft.completeness };
+    }
     if (v === null || v === "") delete db.fields[key];
     else db.fields[key] = v;
     db.fieldSources[key] = "manual";
@@ -280,6 +327,17 @@ export async function upsertServices(rows: z.input<typeof serviceSchema>[]) {
   return run(async () => {
     const s = await guardKb();
     const parsed = z.array(serviceSchema).max(500).parse(rows);
+    if (isSupabase) {
+      const uuids = (a: string[]) => a.filter((x) => z.string().uuid().safeParse(x).success);
+      const saved = await sbm.upsertServiceRows(s, parsed.map((r) => ({
+        id: r.id, name: r.name, synonyms: r.synonyms, price_type: r.priceType,
+        price_min: r.priceType === "after_inspection" ? null : r.priceMin ?? null,
+        price_max: r.priceType === "exact" || r.priceType === "after_inspection" ? null : r.priceMax ?? null,
+        currency: r.currency, duration_min: r.durationMin ?? null, staff_ids: uuids(r.staffIds), branch_ids: uuids(r.branchIds), active: r.active,
+      })));
+      const { toService } = await import("./data/sb/map");
+      return saved.map(toService);
+    }
     const out: Service[] = [];
     for (const row of parsed) {
       const existing = row.id ? db.services.find((x) => x.id === row.id) : undefined;
@@ -295,7 +353,9 @@ export async function upsertServices(rows: z.input<typeof serviceSchema>[]) {
 
 export async function deleteRows(table: "services" | "staff" | "faq", ids: string[]) {
   return run(async () => {
-    await guardKb();
+    const s = await guardKb();
+    z.enum(["services", "staff", "faq"]).parse(table);
+    if (isSupabase) { await sbm.deleteRows(s, table, z.array(z.string()).max(500).parse(ids)); return; }
     const list = db[table] as { id: string }[];
     for (const id of ids) { const i = list.findIndex((x) => x.id === id); if (i >= 0) list.splice(i, 1); }
   });
@@ -305,6 +365,7 @@ export async function bulkPrice(ids: string[], pct: number) {
   return run(async () => {
     const s = await guardKb();
     const p = z.number().min(-90).max(500).parse(pct);
+    if (isSupabase) { await sbm.bulkPrice(s, z.array(z.string()).max(500).parse(ids), p); return; }
     for (const sv of db.services.filter((x) => ids.includes(x.id))) {
       if (sv.priceMin != null) sv.priceMin = Math.round((sv.priceMin * (100 + p)) / 100 / 100) * 100;
       if (sv.priceMax != null) sv.priceMax = Math.round((sv.priceMax * (100 + p)) / 100 / 100) * 100;
@@ -326,8 +387,17 @@ const staffSchema = z.object({
 });
 export async function upsertStaff(rows: z.input<typeof staffSchema>[]) {
   return run(async () => {
-    await guardKb();
+    const s = await guardKb();
     const parsed = z.array(staffSchema).max(200).parse(rows);
+    if (isSupabase) {
+      const isId = (x?: string) => !!x && z.string().uuid().safeParse(x).success;
+      await sbm.upsertStaffRows(s, parsed.map((r) => {
+        const phone = r.transferPhone ? toE164(r.transferPhone) : null;
+        if (r.transferPhone && !phone) throw new UserError(`Телефон перевода у «${r.name}» указан неверно.`);
+        return { id: r.id, name: r.name, specialties: r.specialties, services: r.serviceIds.filter(isId), branch_id: isId(r.branchId) ? r.branchId : null, hours: r.hours, languages: r.languages, transfer_phone: phone, bookable: r.bookable };
+      }));
+      return;
+    }
     for (const row of parsed) {
       const phone = row.transferPhone ? toE164(row.transferPhone) : undefined;
       if (row.transferPhone && !phone) throw new UserError(`Телефон перевода у «${row.name}» указан неверно.`);
@@ -349,8 +419,13 @@ const faqSchema = z.object({
 });
 export async function upsertFaq(rows: z.input<typeof faqSchema>[]) {
   return run(async () => {
-    await guardKb();
+    const s = await guardKb();
     const parsed = z.array(faqSchema).max(500).parse(rows);
+    if (isSupabase) {
+      const saved = await sbm.upsertFaqRows(s, parsed.map((r) => ({ id: r.id, question: r.question, synonyms: r.synonyms, short_answer: r.shortAnswer, long_answer: r.longAnswer ?? null, source: r.source, active: r.active })));
+      const { toFaq } = await import("./data/sb/map");
+      return saved.map(toFaq);
+    }
     const out: Faq[] = [];
     for (const row of parsed) {
       const existing = row.id ? db.faq.find((x) => x.id === row.id) : undefined;
@@ -364,7 +439,8 @@ export async function upsertFaq(rows: z.input<typeof faqSchema>[]) {
 
 export async function answerUnanswered(id: string, shortAnswer: string) {
   return run(async () => {
-    await guardKb();
+    const s = await guardKb();
+    if (isSupabase) { await sbm.answerUnanswered(s, z.string().uuid().parse(id), z.string().trim().min(2).max(400).parse(shortAnswer)); return; }
     const uq = db.unanswered.find((u) => u.id === id);
     if (!uq) throw new UserError("Вопрос не найден.");
     const f: Faq = { id: `fq_${rid()}`, question: uq.text, synonyms: [], shortAnswer: z.string().trim().min(2).max(400).parse(shortAnswer), source: "unanswered", active: true };
@@ -377,6 +453,12 @@ export async function answerUnanswered(id: string, shortAnswer: string) {
 export async function publishQuestionnaire() {
   return run(async () => {
     const s = await guard("publish");
+    if (isSupabase) {
+      const r = await sbm.publish(s);
+      if (r.missing.length) throw new UserError(`Заполните обязательные поля: ${r.missing.join(", ")}`);
+      revalidatePath("/app", "layout");
+      return r.version!;
+    }
     const missing = missingRequired(db.fields, counts());
     if (missing.length) throw new UserError(`Заполните обязательные поля: ${missing.map((m) => m.label).join(", ")}`);
     const version = db.draftVersion;
@@ -394,6 +476,7 @@ export async function publishQuestionnaire() {
 export async function rollbackQuestionnaire(version: number) {
   return run(async () => {
     const s = await guard("publish");
+    notInMvp();
     const target = db.published.find((p) => p.version === version);
     if (!target) throw new UserError("Версия не найдена.");
     const next = db.draftVersion;
@@ -406,13 +489,43 @@ export async function rollbackQuestionnaire(version: number) {
   });
 }
 
-/** Тестовый чат «Как ответит AI» — по ТЕКУЩЕМУ ЧЕРНОВИКУ, не по опубликованной версии */
+/**
+ * Тестовый чат «Как ответит AI» — по ТЕКУЩЕМУ ЧЕРНОВИКУ, локальным движком.
+ * Это проверка черновика: заявки здесь не создаются, и ответ честно об этом говорит.
+ */
 export async function testChat(message: string, state?: DialogState): Promise<Result<EngineReply>> {
   return run(async () => {
-    await requireSession();
+    const s = await guard("edit_questionnaire");
     const text = z.string().trim().min(1).max(1000).parse(message);
-    const mode = db.assistant.mode === "booking" || db.assistant.mode === "semi" ? "consult" : db.assistant.mode;
-    return respondOffline(draftSnapshot(), text, state ?? initialState(), { channel: "chat", mode });
+    const snap = isSupabase ? await sbDraftSnapshot(await createServerSupabase(), s.companyId) : draftSnapshot();
+    const r = respondOffline(snap, text, state ?? initialState(), { channel: "chat", mode: "consult" });
+    if (r.toolCalls.some((t) => t.name === "create_lead" && t.status === "ok")) r.text += " (Проверка черновика: заявка не сохраняется. Настоящую заявку создаёт тест в разделе «Ассистент».)";
+    return r;
+  });
+}
+
+const turnSchema = z.object({
+  conversationId: z.string().uuid().optional(),
+  message: z.string().trim().min(1).max(1000),
+  channel: z.enum(["voice", "chat"]).default("chat"),
+});
+export interface AssistantReply extends Pick<TurnReply, "conversationId" | "text" | "engine" | "model" | "fallback" | "tools" | "lead" | "limited"> { mock?: boolean }
+
+/** «Протестировать AI»: ход диалога по ОПУБЛИКОВАННОЙ базе знаний; заявка создаётся в базе по-настоящему */
+export async function assistantMessage(input: z.input<typeof turnSchema>): Promise<Result<AssistantReply>> {
+  return run(async () => {
+    const s = await requireSession();
+    if (s.member.role !== "owner" && s.member.role !== "admin") throw new Forbidden();
+    const v = turnSchema.parse(input);
+    if (!isSupabase) {
+      // Локальная разработка без базы: ответ по опубликованному снимку, заявка не сохраняется
+      const r = respondOffline(publishedSnapshot(), v.message, initialState(), { channel: v.channel, mode: "consult" });
+      return { conversationId: v.conversationId ?? "00000000-0000-4000-8000-000000000000", text: r.text, engine: "offline", fallback: "no_key", tools: r.toolCalls.map((t) => t.name), mock: true };
+    }
+    const settings = await (await import("./data/sb/repo")).getAssistant(s);
+    const r = await assistantTurn(s, { ...v, greeting: settings.greeting });
+    if (r.lead) revalidatePath("/app", "layout");
+    return { conversationId: r.conversationId, text: r.text, engine: r.engine, model: r.model, fallback: r.fallback, tools: r.tools, lead: r.lead, limited: r.limited };
   });
 }
 
@@ -427,16 +540,18 @@ export async function demoChat(message: string, state?: DialogState): Promise<Re
     if (h && now - h.at < 86400_000 && h.n >= 120) throw new UserError("Лимит демо на сегодня исчерпан. Позвоните на демо-линию или оставьте заявку.");
     demoHits.set(ip, { n: h && now - h.at < 86400_000 ? h.n + 1 : 1, at: h && now - h.at < 86400_000 ? h.at : now });
     const { DEMO_SNAPSHOT } = await import("@all/dialog");
-    return respondOffline(DEMO_SNAPSHOT, z.string().trim().min(1).max(500).parse(message), state ?? initialState(), { channel: "voice", mode: "demo", phase: "0" });
+    const r = respondOffline(DEMO_SNAPSHOT, z.string().trim().min(1).max(500).parse(message), state ?? initialState(), { channel: "voice", mode: "demo", phase: "0" });
+    if (r.toolCalls.some((t) => t.name === "create_lead" && t.status === "ok")) r.text += " (Это публичное демо: заявка не сохраняется.)";
+    return r;
   });
 }
 
 /** Проверка вопросами: 30 типовых вопросов сферы по черновику */
 export async function runQuestionCheck() {
   return run(async () => {
-    await requireSession();
+    const s = await guard("edit_questionnaire");
     const { SPHERE_QUESTIONS } = await import("./sphere-questions");
-    const snap = draftSnapshot();
+    const snap = isSupabase ? await sbDraftSnapshot(await createServerSupabase(), s.companyId) : draftSnapshot();
     return (SPHERE_QUESTIONS.autoservice ?? []).map((q) => {
       const r = respondOffline(snap, q.text, initialState(), { channel: "chat", mode: "consult" });
       const cannot = !!r.unanswered || /уточнит администратор/i.test(r.text);
@@ -461,6 +576,14 @@ export async function updateAssistant(patch: z.input<typeof assistantSchema>) {
   return run(async () => {
     const s = await guard("publish");
     const p = assistantSchema.parse(patch);
+    if (isSupabase) {
+      const plan = await (await import("./data/sb/repo")).getCurrentPlan(s);
+      if (p.mode && !plan.modes.includes(p.mode)) throw new UserError("Режим недоступен на вашем тарифе.");
+      if (p.mode && (p.mode === "booking" || p.mode === "semi")) throw new UserError("Режим станет доступен в следующих обновлениях.");
+      await sbm.updateAssistant(s, p);
+      revalidatePath("/app/assistant");
+      return;
+    }
     const plan = db.plans.find((x) => x.key === db.usage.planKey)!;
     if (p.mode && !plan.modes.includes(p.mode)) throw new UserError("Режим недоступен на вашем тарифе.");
     if (p.mode && (p.mode === "booking" || p.mode === "semi")) throw new UserError("Режим станет доступен в следующих обновлениях.");
@@ -471,6 +594,7 @@ export async function updateAssistant(patch: z.input<typeof assistantSchema>) {
 
 export async function updateNumber(id: string, patch: { receive?: "always" | "no_answer" | "schedule"; noAnswerSeconds?: number }) {
   return run(async () => {
+    notInMvp();
     const s = await guard("publish");
     const n = db.numbers.find((x) => x.id === id);
     if (!n) throw new UserError("Номер не найден.");
@@ -484,6 +608,7 @@ export async function updateNumber(id: string, patch: { receive?: "always" | "no
 const inviteSchema = z.object({ contact: z.string().trim().min(5).max(120), role: z.enum(["admin", "staff", "accountant"]) });
 export async function inviteMember(input: z.input<typeof inviteSchema>) {
   return run(async () => {
+    notInMvp();
     const s = await guard("manage_team");
     const v = inviteSchema.parse(input);
     const isEmail = v.contact.includes("@");
@@ -498,6 +623,7 @@ export async function inviteMember(input: z.input<typeof inviteSchema>) {
 
 export async function updateMember(id: string, patch: { role?: MemberRole; permissions?: Record<string, boolean>; branchIds?: string[]; transferPhone?: string }) {
   return run(async () => {
+    notInMvp();
     const s = await guard("manage_team");
     const m = db.members.find((x) => x.id === id);
     if (!m) throw new UserError("Сотрудник не найден.");
@@ -512,6 +638,7 @@ export async function updateMember(id: string, patch: { role?: MemberRole; permi
 /** Отключение: доступ теряется сразу (JWT короткоживущий), заявки предлагается переназначить */
 export async function disableMember(id: string, reassignTo?: string) {
   return run(async () => {
+    notInMvp();
     const s = await guard("manage_team");
     const m = db.members.find((x) => x.id === id);
     if (!m || m.role === "owner") throw new UserError("Этого сотрудника нельзя отключить.");
@@ -529,6 +656,7 @@ export async function disableMember(id: string, reassignTo?: string) {
 // ───────────── Тариф ─────────────
 export async function setOverage(policy: "pay" | "stop_ai", capMinor?: number) {
   return run(async () => {
+    notInMvp();
     const s = await guard("view_billing");
     if (s.member.role !== "owner") throw new Forbidden();
     db.usage.overagePolicy = z.enum(["pay", "stop_ai"]).parse(policy);
@@ -539,6 +667,7 @@ export async function setOverage(policy: "pay" | "stop_ai", capMinor?: number) {
 
 export async function buyMinutes(pack: 100 | 500 | 1000) {
   return run(async () => {
+    notInMvp();
     const s = await guard("view_billing");
     const p = z.union([z.literal(100), z.literal(500), z.literal(1000)]).parse(pack);
     db.usage.extraMinutes += p;
@@ -552,7 +681,8 @@ export async function buyMinutes(pack: 100 | 500 | 1000) {
 // ───────────── Уведомления ─────────────
 export async function markNotificationsRead(ids?: string[]) {
   return run(async () => {
-    await requireSession();
+    const s = await requireSession();
+    if (isSupabase) { await sbm.markNotificationsRead(s, ids ? z.array(z.string().uuid()).max(200).parse(ids) : undefined); return; }
     const now = new Date().toISOString();
     for (const n of db.notifications) if (!ids || ids.includes(n.id)) n.readAt ??= now;
   });
@@ -560,6 +690,7 @@ export async function markNotificationsRead(ids?: string[]) {
 
 export async function setNotificationPref(userId: string, kind: string, channel: "app" | "telegram" | "email" | "push", on: boolean) {
   return run(async () => {
+    notInMvp();
     const s = await requireSession();
     if (userId !== s.userId && s.member.role !== "owner") throw new Forbidden();
     const list = (db.notificationPrefs[userId] ??= []);
@@ -573,6 +704,7 @@ export async function setNotificationPref(userId: string, kind: string, channel:
 const companySchema = z.object({ name: z.string().trim().min(2).max(120).optional(), timezone: z.string().optional(), currency: z.enum(["KGS", "KZT", "RUB", "USD"]).optional() });
 export async function updateCompany(patch: z.input<typeof companySchema>) {
   return run(async () => {
+    notInMvp();
     const s = await guard("manage_team");
     Object.assign(db.company, companySchema.parse(patch));
     audit(s, "update", "Компания", Object.keys(patch).join(", "));
@@ -580,14 +712,18 @@ export async function updateCompany(patch: z.input<typeof companySchema>) {
   });
 }
 
-export async function setLocale(locale: "ru" | "ky" | "en") {
+export async function setLocale(locale: "ru" | "ky") {
   const store = await cookies();
-  store.set("locale", z.enum(["ru", "ky", "en"]).parse(locale), { path: "/", maxAge: 60 * 60 * 24 * 365 });
+  // en временно скрыт: перевод не завершён
+  const v = z.enum(["ru", "ky"]).safeParse(locale);
+  if (!v.success) return;
+  store.set("locale", v.data, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   revalidatePath("/", "layout");
 }
 
 export async function createApiKey(name: string, scopes: string[]) {
   return run(async () => {
+    notInMvp();
     const s = await guard("export_delete");
     const key = `all_live_${rid()}${rid()}${rid()}`;
     db.apiKeys.unshift({ id: rid(), name: z.string().min(2).max(60).parse(name), prefix: key.slice(0, 12), scopes: z.array(z.string()).min(1).parse(scopes), createdAt: new Date().toISOString() });
@@ -598,6 +734,7 @@ export async function createApiKey(name: string, scopes: string[]) {
 
 export async function revokeApiKey(id: string) {
   return run(async () => {
+    notInMvp();
     const s = await guard("export_delete");
     const k = db.apiKeys.find((x) => x.id === id);
     if (k) { k.revokedAt = new Date().toISOString(); audit(s, "revoke", "API-ключ", k.name); }
@@ -606,6 +743,7 @@ export async function revokeApiKey(id: string) {
 
 export async function requestExport() {
   return run(async () => {
+    notInMvp();
     const s = await guard("export_delete");
     audit(s, "export", "Данные", "Полный экспорт поставлен в очередь");
   });
@@ -613,6 +751,7 @@ export async function requestExport() {
 
 export async function eraseByPhone(phone: string) {
   return run(async () => {
+    notInMvp();
     await guard("export_delete");
     const e = toE164(phone);
     if (!e) throw new UserError("Телефон указан неверно.");
@@ -626,6 +765,7 @@ export async function eraseByPhone(phone: string) {
 // ───────────── Интеграции ─────────────
 export async function retryIntegrationEvent(key: string, logId: string) {
   return run(async () => {
+    notInMvp();
     await guard("manage_integrations");
     const log = db.integrationLogs[key]?.find((x) => x.id === logId);
     if (!log) throw new UserError("Событие не найдено.");
@@ -635,6 +775,7 @@ export async function retryIntegrationEvent(key: string, logId: string) {
 
 export async function linkTelegram(memberId: string) {
   return run(async () => {
+    notInMvp();
     await requireSession();
     const token = rid() + rid();
     return `https://t.me/all_manager_bot?start=${memberId}_${token}`;
@@ -646,8 +787,14 @@ const contactSchema = z.string().trim().min(5).max(120);
 const MAX_ATTEMPTS = 5;
 const LOCK_MS = 10 * 60_000;
 
+/** Mock-вход по коду 000000 — только локальная разработка без Supabase (mockAuthAllowed) */
+function mockOnly() {
+  if (!mockAuthAllowed) throw new UserError("Вход по коду отключён. Войдите по email и паролю.");
+}
+
 export async function requestCode(contact: string) {
   return run(async () => {
+    mockOnly();
     const c = normalizeContact(contactSchema.parse(contact));
     const prev = db.otp.get(c);
     if (prev?.lockedUntil && prev.lockedUntil > Date.now()) throw new UserError("Слишком много попыток. Повторите через 10 минут.");
@@ -660,6 +807,7 @@ export async function requestCode(contact: string) {
 
 export async function verifyCode(contact: string, code: string) {
   return run(async () => {
+    mockOnly();
     const c = normalizeContact(contactSchema.parse(contact));
     const entry = db.otp.get(c);
     if (!entry) throw new UserError("Код истёк. Запросите новый.");
@@ -685,6 +833,7 @@ export async function verifyCode(contact: string, code: string) {
 
 export async function verifyTotp(contact: string, code: string) {
   return run(async () => {
+    mockOnly();
     const c = normalizeContact(contactSchema.parse(contact));
     const entry = db.otp.get(`totp:${c}`);
     if (!entry || Date.now() - entry.sentAt > 5 * 60_000) throw new UserError("Сессия входа истекла. Начните заново.");
@@ -705,7 +854,7 @@ function normalizeContact(c: string) {
 }
 
 export async function devLoginAs(userId: string) {
-  if (process.env.DATA_SOURCE === "supabase") return { ok: false as const, error: "Недоступно" };
+  if (!mockAuthAllowed) return { ok: false as const, error: "Недоступно" };
   await startMockSession(z.string().parse(userId));
   revalidatePath("/", "layout");
   return { ok: true as const };
@@ -716,8 +865,35 @@ export async function logout() {
   revalidatePath("/", "layout");
 }
 
+const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(200), password: z.string().min(1).max(200) });
+/**
+ * Вход по email и паролю через Supabase Auth. Сессия — в httpOnly-cookie @supabase/ssr, обновляется в proxy.ts.
+ * После входа проверяется членство в компании: без него сессия сразу закрывается.
+ */
+export async function loginWithPassword(input: z.input<typeof credentials>): Promise<Result<{ next: string }>> {
+  return run(async () => {
+    if (!isSupabase) throw new UserError("Вход по паролю работает с DATA_SOURCE=supabase.");
+    const v = credentials.safeParse(input);
+    if (!v.success) throw new UserError("Введите email и пароль.");
+    const sb = await createServerSupabase();
+    const { data, error } = await sb.auth.signInWithPassword(v.data);
+    if (error || !data.user) {
+      if (error?.status === 429) throw new UserError("Слишком много попыток входа. Подождите минуту.");
+      throw new UserError("Неверный email или пароль.");
+    }
+    const m = await sb.from("memberships").select("id").eq("user_id", data.user.id).is("disabled_at", null).limit(1);
+    if (!m.data?.length) {
+      await sb.auth.signOut();
+      throw new UserError("У этого аккаунта нет доступа к компании. Обратитесь к собственнику.");
+    }
+    revalidatePath("/", "layout");
+    return { next: "/app" };
+  });
+}
+
 export async function acceptInvite(token: string) {
   return run(async () => {
+    mockOnly();
     z.string().min(6).parse(token);
     const staff = db.members.find((m) => m.role === "staff")!;
     await startMockSession(staff.userId);
@@ -728,6 +904,7 @@ export async function acceptInvite(token: string) {
 /** Вход поддержки в кабинет клиента — по согласию в тикете, с аудитом */
 export async function supportLogin(companyId: string, ticket: string) {
   return run(async () => {
+    mockOnly();
     z.string().min(3).parse(ticket);
     const store = await cookies();
     store.set("support", "1", { path: "/", httpOnly: true, maxAge: 60 * 60 });

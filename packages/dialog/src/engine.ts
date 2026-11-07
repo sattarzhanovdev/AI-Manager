@@ -17,6 +17,8 @@ export interface DialogState {
   failedAttempts: number;
   wantsLead: boolean;
   leadCreated: boolean;
+  /** Клиент просил человека, но номер ещё не известен — заявка на перезвон будет создана, когда он его назовёт */
+  handoffReason?: string;
 }
 
 export const initialState = (): DialogState => ({ fields: {}, failedAttempts: 0, wantsLead: false, leadCreated: false });
@@ -196,7 +198,7 @@ export function respondOffline(s: KbSnapshot, message: string, prev: DialogState
       const type = /перезвон/i.test(message) ? "callback" : "booking";
       if (call("create_lead", { type, fields: state.fields, priority: "normal" }, { id: "lead" })) {
         state.leadCreated = true;
-        text = `Записала: ${state.fields.service ?? "заявка"}, ${state.fields.preferred_time}. Администратор подтвердит по номеру ${state.fields.phone}. Верно?`;
+        text = `Оформила заявку на запись: ${state.fields.service ?? "услуга"}, ${state.fields.preferred_time}. Это ещё не подтверждённая запись — администратор свяжется по номеру ${state.fields.phone} и подтвердит время.`;
       } else {
         text = "Администратор перезвонит вам и всё уточнит.";
       }

@@ -1,5 +1,6 @@
 "use client";
-import type { getCall, getLead, getContact, getIntegrationLogs, getConversation } from "./data/queries";
+import type { getIntegrationLogs, getConversation } from "./data/queries";
+import type { getCall, getLead, getContact } from "./data/repo";
 
 async function get<T>(kind: string, id: string): Promise<T | null> {
   const r = await fetch(`/api/read/${kind}/${encodeURIComponent(id)}`, { cache: "no-store" });
@@ -8,8 +9,8 @@ async function get<T>(kind: string, id: string): Promise<T | null> {
   return (await r.json()) as T;
 }
 
-export const fetchCall = (id: string) => get<NonNullable<ReturnType<typeof getCall>>>("call", id);
-export const fetchLead = (id: string) => get<NonNullable<ReturnType<typeof getLead>>>("lead", id);
-export const fetchContact = (id: string) => get<NonNullable<ReturnType<typeof getContact>>>("contact", id);
+export const fetchCall = (id: string) => get<NonNullable<Awaited<ReturnType<typeof getCall>>>>("call", id);
+export const fetchLead = (id: string) => get<NonNullable<Awaited<ReturnType<typeof getLead>>>>("lead", id);
+export const fetchContact = (id: string) => get<NonNullable<Awaited<ReturnType<typeof getContact>>>>("contact", id);
 export const fetchIntegrationLogs = (key: string) => get<ReturnType<typeof getIntegrationLogs>>("integration-log", key);
 export const fetchConversation = (id: string) => get<NonNullable<ReturnType<typeof getConversation>>>("conversation", id);

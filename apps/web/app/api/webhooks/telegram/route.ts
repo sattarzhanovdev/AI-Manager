@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { parseCallback } from "@all/integrations";
-import { env } from "@/lib/env";
+import { env, isSupabase } from "@/lib/env";
 import { db, patchLead } from "@/lib/data/mock/store";
 
 /**
@@ -15,7 +15,9 @@ const update = z.object({
 const seen = new Set<number>();
 
 export async function POST(req: Request) {
-  if (env.TELEGRAM_WEBHOOK_SECRET && req.headers.get("x-telegram-bot-api-secret-token") !== env.TELEGRAM_WEBHOOK_SECRET) {
+  // Бот Telegram в Hackathon MVP не подключён; секрет обязателен всегда
+  if (isSupabase) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!env.TELEGRAM_WEBHOOK_SECRET || req.headers.get("x-telegram-bot-api-secret-token") !== env.TELEGRAM_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   const parsed = update.safeParse(await req.json().catch(() => null));

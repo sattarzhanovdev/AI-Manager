@@ -19,7 +19,7 @@ import { STATUS_TONE } from "../leads/leads-view";
 
 type Detail = NonNullable<Awaited<ReturnType<typeof fetchContact>>>;
 
-export function ContactsView({ contacts: initial, canErase, open }: { contacts: Contact[]; canErase: boolean; open?: string }) {
+export function ContactsView({ contacts: initial, canErase, canMerge = true, open }: { contacts: Contact[]; canErase: boolean; canMerge?: boolean; open?: string }) {
   const t = useTranslations("contacts");
   const tc = useTranslations("common");
   const [contacts, setContacts] = React.useState(initial);
@@ -68,7 +68,7 @@ export function ContactsView({ contacts: initial, canErase, open }: { contacts: 
           <DataTable data={filtered} columns={columns} getRowId={(c) => c.id} activeId={ls.openId} onOpen={(c) => ls.setOpenId(c.id)} density={ls.density} storageKey="contacts:table"
             columnsLabel={tc("columns")} empty={<EmptyState title={t("empty")} action={<Button size="sm" onClick={() => setCreateOpen(true)}>{tc("create")}</Button>} />} />
         </>}
-        detail={ls.openId ? <ContactCard key={ls.openId} id={ls.openId} all={contacts} canErase={canErase} onClose={() => ls.setOpenId(undefined)}
+        detail={ls.openId ? <ContactCard key={ls.openId} id={ls.openId} all={contacts} canErase={canErase} canMerge={canMerge} onClose={() => ls.setOpenId(undefined)}
           onChanged={(c) => setContacts((list) => list.map((x) => (x.id === c.id ? c : x)))}
           onRemoved={(ids) => { setContacts((list) => list.filter((x) => !ids.includes(x.id))); }} /> : undefined}
       />
@@ -77,7 +77,7 @@ export function ContactsView({ contacts: initial, canErase, open }: { contacts: 
   );
 }
 
-function ContactCard({ id, all, canErase, onClose, onChanged, onRemoved }: { id: string; all: Contact[]; canErase: boolean; onClose: () => void; onChanged: (c: Contact) => void; onRemoved: (ids: string[]) => void }) {
+function ContactCard({ id, all, canErase, canMerge, onClose, onChanged, onRemoved }: { id: string; all: Contact[]; canErase: boolean; canMerge: boolean; onClose: () => void; onChanged: (c: Contact) => void; onRemoved: (ids: string[]) => void }) {
   const t = useTranslations("contacts");
   const tc = useTranslations("common");
   const te = useTranslations("enums");
@@ -108,7 +108,7 @@ function ContactCard({ id, all, canErase, onClose, onChanged, onRemoved }: { id:
         <button onClick={onClose} aria-label="Esc" className="inline-flex size-7 items-center justify-center rounded-full text-fg-muted hover:bg-hover"><X className="size-4" /></button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {dupes.length > 0 && (
+        {canMerge && dupes.length > 0 && (
           <div className="flex items-center gap-2 border-b border-line bg-warning-bg px-4 py-2 text-xs text-warning">
             <Merge className="size-3.5" />{t("mergeHint")}: {dupes.map((x) => x.name ?? formatPhone(x.phone)).join(", ")}
             <Button size="sm" className="ml-auto" onClick={async () => { const r = await mergeContacts(c.id, dupes.map((x) => x.id)); if (r.ok) { toast(t("merged")); onRemoved(dupes.map((x) => x.id)); load(); } else toast.error(r.error); }}>{t("merge")}</Button>

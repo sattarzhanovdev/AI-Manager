@@ -5,13 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   BarChart3, Bell, BookOpen, Bot, CalendarDays, ChevronsLeft, ChevronsRight, CreditCard, Inbox, LayoutDashboard,
-  MessagesSquare, MoreHorizontal, Phone, Plug, Search, Settings, UserCog, Users, Moon, Sun, LogOut, Keyboard,
+  MessagesSquare, MoreHorizontal, Phone, Plug, Search, Settings, UserCog, Users, Moon, Sun, LogOut, Keyboard, Languages, FlaskConical,
 } from "lucide-react";
 import { Avatar, Kbd, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Tooltip, cn, toast } from "@all/ui";
 import type { AiMode, AppNotification, Member } from "@all/db";
 import { useHotkey } from "@/lib/use-hotkeys";
 import { useRealtime } from "@/lib/use-realtime";
-import { devLoginAs, logout, endSupport } from "@/lib/actions";
+import { devLoginAs, logout, endSupport, setLocale } from "@/lib/actions";
 import { AiSwitch } from "./ai-switch";
 import { CommandPalette } from "./command-palette";
 import { NotificationsPanel } from "./notifications-panel";
@@ -29,6 +29,11 @@ export interface ShellProps {
   notifications: AppNotification[];
   banners: BannerData;
   mock: boolean;
+  /** Hackathon MVP на Supabase: без тарифа и минут в навигации */
+  mvp: boolean;
+  /** Метка «Demo Environment» */
+  demoEnv: boolean;
+  locale: string;
   demoUsers: { userId: string; name: string; role: string }[];
   hidden: string[];
   children: React.ReactNode;
@@ -156,7 +161,7 @@ export function AppShell(props: ShellProps) {
           })}
         </ul>
         <div className="border-t border-line p-2">
-          {!collapsed && (
+          {!collapsed && !props.mvp && (
             <Link href="/app/billing" className="mb-1 block rounded-[8px] px-2 py-1.5 hover:bg-hover">
               <span className="block text-[11px] text-fg-muted">{t("nav.plan", { name: props.planName })}</span>
               <span className={cn("block text-xs tabular-nums", props.minutesLeft < 150 ? "text-warning" : "text-fg-secondary")}>{t("nav.minutesLeft", { count: props.minutesLeft })}</span>
@@ -179,6 +184,14 @@ export function AppShell(props: ShellProps) {
                 <MenuItem icon={<Sun />} onSelect={() => setTheme("light")}>{t("nav.themeLight")}</MenuItem>
                 <MenuSeparator />
                 <MenuItem icon={<Keyboard />} shortcut="?" onSelect={() => setHelpOpen(true)}>{t("nav.shortcuts")}</MenuItem>
+                <MenuSeparator />
+                <MenuLabel>{t("mvp.language")}</MenuLabel>
+                {/* Английская локализация не завершена — выбор временно скрыт */}
+                {([["ru", "Русский"], ["ky", "Кыргызча"]] as const).map(([code, label]) => (
+                  <MenuItem key={code} icon={<Languages />} onSelect={async () => { await setLocale(code); router.refresh(); }}>
+                    {label}{props.locale === code ? " ✓" : ""}
+                  </MenuItem>
+                ))}
                 {props.mock && (
                   <>
                     <MenuSeparator />
@@ -191,7 +204,7 @@ export function AppShell(props: ShellProps) {
                   </>
                 )}
                 <MenuSeparator />
-                <MenuItem icon={<LogOut />} onSelect={async () => { await logout(); router.push("/login"); }}>{t("nav.logout")}</MenuItem>
+                <MenuItem icon={<LogOut />} onSelect={async () => { await logout(); router.push("/login"); router.refresh(); }}>{t("nav.logout")}</MenuItem>
               </MenuContent>
             </Menu>
             <button type="button" onClick={toggleCollapsed} aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
@@ -210,6 +223,13 @@ export function AppShell(props: ShellProps) {
             <span className="hidden text-fg-faint sm:inline">/</span>
             <span className="truncate font-medium">{current ? t(`nav.${current.key}`) : ""}</span>
           </div>
+          {props.demoEnv && (
+            <Tooltip content={t("mvp.demoEnvHint")}>
+              <span data-testid="demo-env" className="ml-2 inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-line-strong px-2 text-[11px] text-fg-muted">
+                <FlaskConical className="size-3" aria-hidden />{t("mvp.demoEnv")}
+              </span>
+            </Tooltip>
+          )}
           <button type="button" onClick={() => setPaletteOpen(true)}
             className="ml-auto flex h-8 w-64 items-center gap-2 rounded-full border border-line px-3 text-[13px] text-fg-faint hover:border-line-strong max-lg:w-auto">
             <Search className="size-3.5" />
@@ -236,7 +256,7 @@ export function AppShell(props: ShellProps) {
 
       {/* Мобильная нижняя навигация */}
       <nav aria-label="Нижняя навигация" className="fixed inset-x-0 bottom-0 z-30 flex h-14 items-stretch border-t border-line bg-elevated md:hidden">
-        {[nav.find((n) => n.key === "overview"), nav.find((n) => n.key === "calls"), nav.find((n) => n.key === "leads"), nav.find((n) => n.key === "inbox")].filter(Boolean).map((item) => {
+        {[nav.find((n) => n.key === "overview"), nav.find((n) => n.key === "leads"), nav.find((n) => n.key === "contacts"), nav.find((n) => n.key === "inbox") ?? nav.find((n) => n.key === "assistant")].filter(Boolean).map((item) => {
           const Icon = item!.icon;
           return (
             <Link key={item!.key} href={item!.phase1b ? "#" : item!.href} className={cn("flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px]", isActive(item!.href) ? "text-fg" : "text-fg-muted", item!.phase1b && "opacity-45")}>
@@ -249,7 +269,7 @@ export function AppShell(props: ShellProps) {
             <MoreHorizontal className="size-5" />{t("nav.more")}
           </MenuTrigger>
           <MenuContent>
-            {nav.filter((n) => !["overview", "calls", "leads", "inbox", "calendar"].includes(n.key)).map((n) => (
+            {nav.filter((n) => !["overview", "leads", "contacts", props.hidden.includes("inbox") ? "assistant" : "inbox", "calendar"].includes(n.key)).map((n) => (
               <MenuItem key={n.key} onSelect={() => router.push(n.href)}>{t(`nav.${n.key}`)}</MenuItem>
             ))}
           </MenuContent>

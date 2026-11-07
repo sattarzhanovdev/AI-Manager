@@ -64,7 +64,7 @@ function CompanyTab({ company, isOwner, locale }: Props) {
       <Field label={t("sphere")}><Input value="Автосервис" disabled /></Field>
       <Field label={t("timezone")}><Select value={tz} onChange={(e) => setTz(e.target.value)} disabled={!isOwner}>{["Asia/Bishkek", "Asia/Almaty", "Europe/Moscow", "Asia/Novosibirsk"].map((z) => <option key={z}>{z}</option>)}</Select></Field>
       <Field label={t("currency")}><Select value={currency} onChange={(e) => setCurrency(e.target.value as Company["currency"])} disabled={!isOwner}>{["KGS", "KZT", "RUB", "USD"].map((c) => <option key={c}>{c}</option>)}</Select></Field>
-      <Field label={t("locale")}><Select value={locale} onChange={async (e) => { await setLocale(e.target.value as "ru"); router.refresh(); }}><option value="ru">Русский</option><option value="ky">Кыргызча (бета)</option><option value="en">English (beta)</option></Select></Field>
+      <Field label={t("locale")}><Select value={locale} onChange={async (e) => { await setLocale(e.target.value as "ru"); router.refresh(); }}><option value="ru">Русский</option><option value="ky">Кыргызча</option></Select></Field>
       <div className="md:col-span-2"><Button variant="primary" disabled={!isOwner}>{tc("save")}</Button></div>
     </form>
   );

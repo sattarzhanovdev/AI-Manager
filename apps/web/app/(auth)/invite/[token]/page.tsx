@@ -1,10 +1,14 @@
 import { getTranslations } from "next-intl/server";
 import { InviteAccept } from "@/components/auth/invite-accept";
+import { notFound } from "next/navigation";
 import { getCompany } from "@/lib/data/queries";
+import { isSupabase } from "@/lib/env";
 
 export const metadata = { title: "Приглашение" };
 
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+  // Приглашения в MVP не используются: аккаунты создаёт provisioning-скрипт
+  if (isSupabase) notFound();
   const { token } = await params;
   const t = await getTranslations("auth");
   const expired = token.startsWith("exp");

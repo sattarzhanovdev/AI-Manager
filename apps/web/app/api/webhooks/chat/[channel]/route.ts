@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeTelegram, normalizeWhatsApp, normalizeWidget, verifyMeta, type InboundMessage } from "@all/integrations";
 import { toE164 } from "@/lib/format";
+import { env, isSupabase } from "@/lib/env";
 import { db } from "@/lib/data/mock/store";
 import { inbound } from "@/lib/data/mock/chat";
 
@@ -15,13 +16,16 @@ const seen = new Set<string>();
 
 export async function GET(req: Request, { params }: { params: Promise<{ channel: string }> }) {
   // Верификация вебхука Meta
+  if (isSupabase) return new Response("not found", { status: 404 });
   const { channel } = await params;
   const u = new URL(req.url);
-  if (channel === "whatsapp" && u.searchParams.get("hub.verify_token") === process.env.META_VERIFY_TOKEN) return new Response(u.searchParams.get("hub.challenge") ?? "");
+  if (channel === "whatsapp" && process.env.META_VERIFY_TOKEN && u.searchParams.get("hub.verify_token") === process.env.META_VERIFY_TOKEN) return new Response(u.searchParams.get("hub.challenge") ?? "");
   return new Response("forbidden", { status: 403 });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ channel: string }> }) {
+  // Входящие каналы в Hackathon MVP не подключены: публичный вебхук не принимает данные
+  if (isSupabase) return new Response("not found", { status: 404 });
   const { channel } = await params;
   const raw = await req.text();
   let body: Record<string, unknown>;
@@ -29,13 +33,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ channel
 
   let msgs: InboundMessage[] = [];
   if (channel === "telegram") {
-    if (process.env.TELEGRAM_WEBHOOK_SECRET && req.headers.get("x-telegram-bot-api-secret-token") !== process.env.TELEGRAM_WEBHOOK_SECRET) return new Response("forbidden", { status: 403 });
+    // Секрет обязателен: без него вебхук не принимает данные
+    if (!env.TELEGRAM_WEBHOOK_SECRET || req.headers.get("x-telegram-bot-api-secret-token") !== env.TELEGRAM_WEBHOOK_SECRET) return new Response("forbidden", { status: 403 });
     const m = normalizeTelegram(body);
     if (m) msgs = [m];
   } else if (channel === "whatsapp") {
-    if (process.env.META_APP_SECRET && !verifyMeta(process.env.META_APP_SECRET, raw, req.headers.get("x-hub-signature-256"))) return new Response("forbidden", { status: 403 });
+    if (!process.env.META_APP_SECRET || !verifyMeta(process.env.META_APP_SECRET, raw, req.headers.get("x-hub-signature-256"))) return new Response("forbidden", { status: 403 });
     msgs = normalizeWhatsApp(body);
   } else if (channel === "widget") {
+    if (!env.CHAT_WEBHOOK_SECRET || req.headers.get("x-webhook-secret") !== env.CHAT_WEBHOOK_SECRET) return new Response("forbidden", { status: 403 });
     const m = normalizeWidget(body);
     if (m) msgs = [m];
   } else {

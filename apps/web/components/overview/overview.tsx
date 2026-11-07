@@ -5,18 +5,22 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { AlertOctagon, AlertTriangle, Clock, PhoneMissed, HelpCircle, PlugZap, Check, CircleDashed } from "lucide-react";
 import { Kpi, Panel, PageHeader, Pill, Button, Menu, MenuContent, MenuItem, MenuTrigger, cn, toast, EmptyState } from "@all/ui";
-import type { getOverview } from "@/lib/data/queries";
+import type { OverviewData } from "@/lib/data/repo";
 import { updateLead, markCallback } from "@/lib/actions";
 import { useRealtime } from "@/lib/use-realtime";
 import { relativeTime, formatPhone, formatDateTime, fmtInt } from "@/lib/format";
+import { STATUS_TONE, STATUSES } from "../leads/leads-view";
 
-type Data = ReturnType<typeof getOverview>;
+type Data = OverviewData;
 
 const ICON = { complaint: AlertOctagon, urgent: AlertTriangle, sla: Clock, missed: PhoneMissed, unanswered: HelpCircle, integration: PlugZap } as const;
 const TONE = { complaint: "text-danger", urgent: "text-danger", sla: "text-warning", missed: "text-warning", unanswered: "text-fg-muted", integration: "text-warning" } as const;
 
-export function Overview({ data, members, integrationCount, me }: { data: Data; members: { userId: string; name: string }[]; integrationCount: number; me: string }) {
+export function Overview({ data, members, integrationCount, me, mvp = false, canKb = true }: { data: Data; members: { userId: string; name: string }[]; integrationCount: number; me: string; mvp?: boolean; canKb?: boolean }) {
   const t = useTranslations("overview");
+  const tm = useTranslations("mvp");
+  const te = useTranslations("enums");
+  const tl = useTranslations("leads");
   const ta = useTranslations("ai");
   const router = useRouter();
   const [done, setDone] = React.useState<Set<string>>(new Set());
@@ -39,8 +43,12 @@ export function Overview({ data, members, integrationCount, me }: { data: Data; 
           <Kpi label={t("kpiAnswered")} value={`${k.answeredPct}%`} deltaTone="neutral" href="/app/calls?outcome=missed" />
           <Kpi label={t("kpiNewLeads")} value={k.newLeads} hint={t("withoutOwner")} href="/app/leads?view=new" />
           <Kpi label={t("kpiMissed")} value={k.missed} hint={k.missedReason} href="/app/calls?view=missed" />
-          <Kpi label={t("kpiMinutes")} value={fmtInt(k.minutesLeft)} hint={t("forecast", { count: fmtInt(k.minutesForecast) })} href="/app/billing" />
-          <Kpi label={t("kpiKb")} value={`${k.kbIndex}%`} hint={t("unanswered", { count: k.unanswered })} href="/app/knowledge" />
+          {mvp ? (
+            <Kpi label={tm("kpiProcessed")} value={data.leadStats.processed} hint={`${tm("kpiLeadsTotal")}: ${data.leadStats.total} · ${tm("kpiLeadsToday", { count: data.leadStats.today })}`} href="/app/leads" />
+          ) : (
+            <Kpi label={t("kpiMinutes")} value={fmtInt(k.minutesLeft)} hint={t("forecast", { count: fmtInt(k.minutesForecast) })} href="/app/billing" />
+          )}
+          {canKb && <Kpi label={t("kpiKb")} value={`${k.kbIndex}%`} hint={t("unanswered", { count: k.unanswered })} href="/app/knowledge" />}
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[3fr_2fr]">
@@ -103,6 +111,38 @@ export function Overview({ data, members, integrationCount, me }: { data: Data; 
             <Panel title={t("byHour")} aside={<span className="flex items-center gap-3 text-xs text-fg-muted"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-fg-secondary" />{t("todayLegend")}</span><span className="flex items-center gap-1"><span className="w-3 border-t border-dashed border-fg-faint" />{t("yesterdayLegend")}</span></span>}>
               <HourChart today={data.hours.today} yesterday={data.hours.yesterday} />
             </Panel>
+            {mvp ? (
+              <>
+                <Panel title={tm("leadsByStatus")} aside={<Link href="/app/leads" className="text-xs text-fg-muted hover:text-fg">{tm("kpiLeadsTotal")}: <span className="tabular-nums">{data.leadStats.total}</span></Link>}>
+                  <ul className="flex flex-col gap-1.5 p-3" data-testid="leads-by-status">
+                    {STATUSES.map((st) => {
+                      const v = data.leadStats.byStatus[st];
+                      return (
+                        <li key={st} className="grid grid-cols-[120px_1fr_40px] items-center gap-2 text-[13px]">
+                          <Pill tone={STATUS_TONE[st]}>{te(`leadStatus.${st}`)}</Pill>
+                          <span className="h-1.5 rounded-full bg-subtle"><span className="block h-1.5 rounded-full bg-fg-secondary" style={{ width: `${data.leadStats.total ? (v / data.leadStats.total) * 100 : 0}%` }} /></span>
+                          <span className="text-right tabular-nums">{v}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Panel>
+                <Panel title={tm("recentActions")} bodyClassName="overflow-auto">
+                  {data.recent.length === 0 ? <EmptyState title={tm("recentEmpty")} /> : (
+                    <ul data-testid="recent-actions">
+                      {data.recent.map((e) => (
+                        <li key={e.id} className="flex h-8 items-center gap-2 border-b border-line px-3 text-[13px] last:border-b-0">
+                          <span className="w-16 shrink-0 text-xs text-fg-faint">{relativeTime(e.createdAt)}</span>
+                          <span className="shrink-0 text-xs text-fg-muted">{e.actorKind === "ai" ? tl("ai") : e.actorKind === "system" ? tl("system") : members.find((m) => m.userId === e.actorId)?.name ?? "—"}</span>
+                          <span className="shrink-0 text-xs text-fg-secondary">{tl(`events.${e.action}`)}{e.action === "status" ? ` → ${te(`leadStatus.${String(e.after)}` as "leadStatus.new")}` : ""}</span>
+                          <Link href={`/app/leads?open=${e.leadId}`} className="min-w-0 flex-1 truncate hover:underline"><span className="tabular-nums text-fg-faint">#{e.leadNumber}</span> {e.leadTitle}</Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Panel>
+              </>
+            ) : (
             <Panel title={t("status")} aside={<Link href="/app/assistant" className="text-xs text-fg-muted hover:text-fg">{t("setup")}</Link>}>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-3 text-[13px]">
                 <dt className="text-xs text-fg-muted">{t("aiStatus")}</dt>
@@ -117,6 +157,7 @@ export function Overview({ data, members, integrationCount, me }: { data: Data; 
                 <dd>{data.status.lastPublish ? <Link href="/app/knowledge" className="hover:underline">v{data.status.lastPublish.version} · {relativeTime(data.status.lastPublish.publishedAt!)}</Link> : "—"}</dd>
               </dl>
             </Panel>
+            )}
           </div>
         </div>
       </div>

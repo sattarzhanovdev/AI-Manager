@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { getQuestionnaire } from "@/lib/data/queries";
+import { getQuestionnaire } from "@/lib/data/repo";
 import { TableEditor } from "@/components/knowledge/table-editor";
 
 export default async function KbTablePage({ params, searchParams }: { params: Promise<{ table: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
@@ -10,7 +10,7 @@ export default async function KbTablePage({ params, searchParams }: { params: Pr
   const { table } = await params;
   if (table !== "services" && table !== "staff" && table !== "faq") notFound();
   const sp = await searchParams;
-  const q = getQuestionnaire();
+  const q = await getQuestionnaire(s);
   return (
     <TableEditor key={table} table={table} services={q.services} staff={q.staff} faq={q.faq} branches={q.branches.map((b) => ({ id: b.id, name: b.name }))}
       canEdit={can(s.member.role, "edit_questionnaire", s.member.permissions)} prefillQuestion={sp.new} />

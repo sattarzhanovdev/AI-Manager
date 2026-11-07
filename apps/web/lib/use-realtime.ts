@@ -8,6 +8,8 @@ let source: EventSource | null = null;
 
 function connect() {
   if (source || typeof window === "undefined") return;
+  // Realtime из памяти процесса работает только в mock-режиме (см. <html data-rt>)
+  if (document.documentElement.dataset.rt === "off") return;
   source = new EventSource("/api/realtime");
   source.onmessage = (m) => {
     try {

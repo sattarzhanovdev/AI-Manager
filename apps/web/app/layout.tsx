@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
 import { Toaster, TooltipProvider } from "@all/ui";
+import { isSupabase } from "@/lib/env";
 import "./globals.css";
 
 // DM Sans из design.md не содержит кириллицы — используем рекомендованную замену Inter (её же допускает раздел 03)
@@ -21,7 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   const theme = (await cookies()).get("theme")?.value;
   return (
-    <html lang={locale} data-theme={theme === "light" || theme === "dark" ? theme : "dark"} className={`${inter.variable} ${geist.variable} ${mono.variable}`}>
+    <html lang={locale} data-rt={isSupabase ? "off" : "sse"} data-theme={theme === "light" || theme === "dark" ? theme : "dark"} className={`${inter.variable} ${geist.variable} ${mono.variable}`}>
       <body>
         <NextIntlClientProvider>
           <TooltipProvider>

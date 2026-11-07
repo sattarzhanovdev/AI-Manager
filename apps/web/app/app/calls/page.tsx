@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
-import { listCalls, getBranches, getNumbers, getCompany } from "@/lib/data/queries";
+import { listCalls, getBranches, getNumbers, getCompany } from "@/lib/data/repo";
 import { CallsView } from "@/components/calls/calls-view";
 
 export const metadata = { title: "Звонки" };
@@ -9,8 +9,9 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
   const s = await requireSession();
   if (s.member.role === "accountant") redirect("/app/billing");
   const sp = await searchParams;
+  const [calls, branches, numbers, company] = await Promise.all([listCalls(s), getBranches(s), getNumbers(s), getCompany(s)]);
   return (
-    <CallsView calls={listCalls(s)} branches={getBranches().map((b) => ({ id: b.id, name: b.name }))} numbers={getNumbers().map((n) => ({ id: n.id, e164: n.e164 }))}
-      initial={{ view: sp.view, open: sp.open, outcome: sp.outcome, hour: sp.hour }} tz={getCompany().timezone} />
+    <CallsView calls={calls} branches={branches.map((b) => ({ id: b.id, name: b.name }))} numbers={numbers.map((n) => ({ id: n.id, e164: n.e164 }))}
+      initial={{ view: sp.view, open: sp.open, outcome: sp.outcome, hour: sp.hour }} tz={company.timezone} />
   );
 }

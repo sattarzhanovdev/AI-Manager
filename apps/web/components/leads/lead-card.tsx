@@ -60,7 +60,7 @@ function Body({ d, members, me, onClose, onNav, onPatched, reload }: { d: Detail
   const fieldKeys = Array.from(new Set([...(FIELDS_BY_TYPE[l.type] ?? []), ...Object.keys(l.payload)])).sort((a, b) => Number(a === "comment") - Number(b === "comment"));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="lead-card">
       <div className="flex shrink-0 flex-col gap-2 border-b border-line px-4 py-2.5">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -130,6 +130,7 @@ function Body({ d, members, me, onClose, onNav, onPatched, reload }: { d: Detail
         </section>
 
         {d.call && <RelatedCall call={d.call} />}
+        {d.dialog && d.dialog.length > 0 && <RelatedDialog messages={d.dialog} />}
 
         <section className="px-4 py-3">
           <SectionTitle>{t("comments")}</SectionTitle>
@@ -152,6 +153,26 @@ function RelatedCall({ call }: { call: NonNullable<Detail["call"]> }) {
       <SectionTitle aside={<Link href={`/app/calls?open=${call.id}`} className="text-xs text-fg-muted hover:text-fg">{formatDateTime(call.startedAt)}</Link>}>{t("relatedCall")}</SectionTitle>
       {call.turns.length > 0 && <CallPlayer turns={call.turns} durationMs={durationMs} pb={pb} compact />}
       {call.summary && <p className="mt-2 text-[13px] leading-5 text-fg-secondary">{call.summary}</p>}
+    </section>
+  );
+}
+
+function RelatedDialog({ messages }: { messages: NonNullable<Detail["dialog"]> }) {
+  const tm = useTranslations("mvp");
+  const [open, setOpen] = React.useState(messages.length <= 8);
+  const list = open ? messages : messages.slice(-6);
+  return (
+    <section className="border-b border-line px-4 py-3" data-testid="lead-dialog">
+      <SectionTitle aside={messages.length > 6 && <button className="text-xs text-fg-muted hover:text-fg" onClick={() => setOpen((v) => !v)}>{open ? "−" : `+${messages.length - 6}`}</button>}>{tm("dialog")}</SectionTitle>
+      <p className="-mt-1 mb-2 text-xs text-fg-faint">{tm("dialogHint")}</p>
+      <ol className="flex flex-col gap-1">
+        {list.map((m) => (
+          <li key={m.id} className="grid grid-cols-[36px_1fr] gap-2 text-[13px] leading-5">
+            <span className={cn("text-xs", m.author === "ai" ? "font-medium text-fg" : "text-fg-muted")}>{m.author === "ai" ? "AI" : "Клиент"}</span>
+            <span className="text-fg-secondary">{m.body}</span>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

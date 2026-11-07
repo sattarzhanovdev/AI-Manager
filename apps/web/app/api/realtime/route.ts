@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { isSupabase } from "@/lib/env";
 import { db, ensureSimulator } from "@/lib/data/mock/store";
 import type { RealtimeEvent } from "@/lib/data/types";
 
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
  * В режиме supabase браузер подписывается на postgres_changes напрямую (RLS фильтрует по компании).
  */
 export async function GET(req: Request) {
+  // В режиме supabase SSE из памяти процесса не используется (Vercel — несколько инстансов)
+  if (isSupabase) return new Response(null, { status: 204 });
   const session = await getSession();
   if (!session) return new Response("unauthorized", { status: 401 });
   ensureSimulator();

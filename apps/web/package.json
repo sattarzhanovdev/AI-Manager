@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "provision:demo": "tsx scripts/provision-demo.ts"
   },
   "dependencies": {
     "@all/db": "workspace:*",
@@ -43,6 +44,7 @@
     "eslint-config-next": "16.4.5",
     "tailwindcss": "4.3.5",
     "typescript": "5.9.3",
-    "vitest": "4.1.12"
+    "vitest": "4.1.12",
+    "tsx": "4.23.15"
   }
 }

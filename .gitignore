@@ -12,3 +12,8 @@ coverage
 playwright-report
 test-results
 supabase/.temp
+
+# Доступы жюри — передаются отдельно, не коммитятся
+HACKATHON_ACCESS.md
+*.access.md
+.vercel

@@ -2,6 +2,7 @@
 import { z } from "zod";
 import type { Appointment, Lead } from "@all/db";
 import { requireSession, type Session } from "./auth";
+import { isSupabase } from "./env";
 import { can } from "./permissions";
 import { toE164 } from "./format";
 import { db, emit, addLeadEvent } from "./data/mock/store";
@@ -13,6 +14,8 @@ type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string
 class UserError extends Error {}
 
 async function run<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
+  // Фаза 1б (чаты, календарь) работает только на mock-хранилище; в Hackathon MVP не подключена к базе
+  if (isSupabase) return { ok: false, error: "Недоступно в демо-версии MVP: раздел не подключён к базе." };
   try {
     return { ok: true, data: await fn() };
   } catch (e) {

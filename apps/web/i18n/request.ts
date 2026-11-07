@@ -1,7 +1,8 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies } from "next/headers";
 
-export const LOCALES = ["ru", "ky", "en"] as const;
+// en временно скрыт до завершения перевода
+export const LOCALES = ["ru", "ky"] as const;
 export type Locale = (typeof LOCALES)[number];
 
 export default getRequestConfig(async () => {

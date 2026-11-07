@@ -40,12 +40,12 @@ export function CreateLeadSheet({ open, onOpenChange, defaults }: { open: boolea
     <Sheet open={open} onOpenChange={onOpenChange} title={t("createTitle")}
       footer={<><Button onClick={() => onOpenChange(false)}>{tc("cancel")}</Button><Button variant="primary" loading={isSubmitting} onClick={submit}>{tc("create")}</Button></>}>
       <form onSubmit={submit} className="grid grid-cols-2 gap-3">
-        <Field label={t("form.type")}><Select {...register("type")}>{(["booking", "consultation", "order", "complaint", "reschedule", "callback", "other"] as const).map((v) => <option key={v} value={v}>{te(`leadType.${v}`)}</option>)}</Select></Field>
-        <Field label={t("form.priority")}><Select {...register("priority")}><option value="normal">{t("priority.normal")}</option><option value="urgent">{t("priority.urgent")}</option></Select></Field>
-        <Field label={t("form.title")} error={errors.title?.message} className="col-span-2"><Input {...register("title")} placeholder={t("form.titlePh")} aria-invalid={!!errors.title} /></Field>
-        <Field label={t("form.phone")} error={errors.phone?.message}><Input {...register("phone")} placeholder="+996 555 123 456" aria-invalid={!!errors.phone} /></Field>
-        <Field label={t("form.name")}><Input {...register("name")} /></Field>
-        <Field label={t("form.comment")} className="col-span-2"><Textarea rows={3} {...register("comment")} /></Field>
+        <Field label={t("form.type")} htmlFor="nl-type"><Select id="nl-type" {...register("type")}>{(["booking", "consultation", "order", "complaint", "reschedule", "callback", "other"] as const).map((v) => <option key={v} value={v}>{te(`leadType.${v}`)}</option>)}</Select></Field>
+        <Field label={t("form.priority")} htmlFor="nl-priority"><Select id="nl-priority" {...register("priority")}><option value="normal">{t("priority.normal")}</option><option value="urgent">{t("priority.urgent")}</option></Select></Field>
+        <Field label={t("form.title")} htmlFor="nl-title" error={errors.title?.message} className="col-span-2"><Input id="nl-title" {...register("title")} placeholder={t("form.titlePh")} aria-invalid={!!errors.title} /></Field>
+        <Field label={t("form.phone")} htmlFor="nl-phone" error={errors.phone?.message}><Input id="nl-phone" {...register("phone")} placeholder="+996 555 123 456" aria-invalid={!!errors.phone} /></Field>
+        <Field label={t("form.name")} htmlFor="nl-name"><Input id="nl-name" {...register("name")} /></Field>
+        <Field label={t("form.comment")} htmlFor="nl-comment" className="col-span-2"><Textarea id="nl-comment" rows={3} {...register("comment")} /></Field>
       </form>
     </Sheet>
   );

@@ -53,3 +53,9 @@ create or replace function cron.schedule(job_name text, schedule text, command t
 do $$ begin
   if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then create publication supabase_realtime; end if;
 end $$;
+
+-- Роль, под которой PostgREST подключается к базе (как в Supabase)
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'authenticator') then create role authenticator login password 'authenticator' noinherit; end if;
+end $$;
+grant anon, authenticated, service_role to authenticator;

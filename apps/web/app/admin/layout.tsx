@@ -1,15 +1,18 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSession } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { AdminNav } from "@/components/admin/admin-nav";
 
-/** Суперадминка — только команда платформы (platform_role в JWT). В mock-режиме открыта для проверки. */
+/**
+ * Суперадминка платформы. В Hackathon MVP (supabase) не подключена к базе — маршрут закрыт (404) для всех.
+ * В mock-режиме открыта только при локальной разработке.
+ */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const s = await getSession();
   if (!s) redirect("/login");
-  if (env.DATA_SOURCE === "supabase" && !s.member) redirect("/app");
+  if (env.DATA_SOURCE === "supabase") notFound();
   const t = await getTranslations("admin");
   return (
     <div className="flex h-dvh overflow-hidden bg-app">

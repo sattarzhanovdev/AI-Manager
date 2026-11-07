@@ -16,8 +16,9 @@ const VOICES = [
   { id: "timur", name: "Тимур", desc: "спокойный мужской" }, { id: "ermek", name: "Эрмек", desc: "энергичный мужской" },
 ];
 
-export function AssistantView({ settings, numbers, plan, members, canEdit, autoTest }: {
+export function AssistantView({ settings, numbers, plan, members, canEdit, autoTest, engine }: {
   settings: AssistantSettings; numbers: PhoneNumber[]; plan: Plan; members: { userId: string; name: string }[]; canEdit: boolean; autoTest: boolean;
+  engine: { llm: boolean; model?: string; mock: boolean };
 }) {
   const t = useTranslations("assistant");
   const tc = useTranslations("common");
@@ -115,13 +116,13 @@ export function AssistantView({ settings, numbers, plan, members, canEdit, autoT
               </div>
             </section>
 
-            <section className={section}>
+            {numbers.length > 0 && <section className={section}>
               <h2 className={h}>{t("schedule")}</h2>
               <p className="-mt-2 text-xs text-fg-muted">{t("scheduleHint")}</p>
               <ul className="rounded-[10px] border border-line">
                 {numbers.map((n) => <NumberRow key={n.id} n={n} />)}
               </ul>
-            </section>
+            </section>}
 
             <section className={section}>
               <h2 className={h}>{t("handoff")}</h2>
@@ -157,7 +158,7 @@ export function AssistantView({ settings, numbers, plan, members, canEdit, autoT
           </fieldset>
         </div>
         <aside className="flex min-h-0 flex-col border-l border-line max-lg:border-l-0 max-lg:border-t">
-          <TestCall greeting={s.greeting} autoStart={autoTest} voiceRate={s.speed} />
+          <TestCall greeting={s.greeting} autoStart={autoTest} voiceRate={s.speed} engine={engine} />
         </aside>
       </div>
     </div>

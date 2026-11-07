@@ -2,9 +2,11 @@ import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getInvoices, getCompany } from "@/lib/data/queries";
 import { formatMoney } from "@/lib/format";
+import { isSupabase } from "@/lib/env";
 
 /** Счёт для печати (HTML → «Сохранить как PDF»). Генерация настоящего PDF — воркер биллинга. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (isSupabase) return new Response("not found", { status: 404 });
   const s = await getSession();
   if (!s || !can(s.member.role, "view_billing")) return new Response("forbidden", { status: 403 });
   const { id } = await params;

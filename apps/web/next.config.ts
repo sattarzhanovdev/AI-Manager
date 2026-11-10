@@ -16,6 +16,8 @@ const config: NextConfig = {
   transpilePackages: ["@all/ui", "@all/db", "@all/dialog", "@all/integrations"],
   typedRoutes: false,
   poweredByHeader: false,
+  // Server Function arguments may contain passwords, MFA codes and customer data.
+  logging: { serverFunctions: false, incomingRequests: false, browserToTerminal: false },
   devIndicators: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

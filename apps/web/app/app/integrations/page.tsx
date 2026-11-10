@@ -3,7 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { isDisabledInMvp } from "@/lib/data/repo";
 import { MvpDisabled } from "@/components/mvp/mvp-disabled";
 import { can } from "@/lib/permissions";
-import { getIntegrations, getMembers } from "@/lib/data/queries";
+import { getIntegrations, getMembers } from "@/lib/data/repo";
 import { IntegrationsView } from "@/components/integrations/integrations-view";
 
 export const metadata = { title: "Каналы и интеграции" };
@@ -12,7 +12,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
   const s = await requireSession();
   if (isDisabledInMvp("integrations")) return <MvpDisabled />;
   if (s.member.role === "accountant" || s.member.role === "staff") redirect("/app");
-  const members = getMembers().filter((m) => !m.disabledAt && m.role !== "accountant");
-  return <IntegrationsView items={getIntegrations()} linked={members.filter((m) => m.telegramLinked).length} total={members.length} openKey={(await searchParams).open}
+  const members = (await getMembers(s)).filter((m) => !m.disabledAt && m.role !== "accountant");
+  return <IntegrationsView items={(await getIntegrations(s))} linked={members.filter((m) => m.telegramLinked).length} total={members.length} openKey={(await searchParams).open}
     canManage={can(s.member.role, "manage_integrations", s.member.permissions)} />;
 }

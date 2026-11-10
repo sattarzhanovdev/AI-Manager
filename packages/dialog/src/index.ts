@@ -7,3 +7,4 @@ export * from "./search";
 export * from "./money";
 export * from "./engine";
 export { DEMO_SNAPSHOT } from "./fixtures";
+export * from "./demo-roles";

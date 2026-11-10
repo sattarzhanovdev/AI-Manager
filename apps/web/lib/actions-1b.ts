@@ -1,13 +1,15 @@
 "use server";
 import { z } from "zod";
-import type { Appointment, Lead } from "@all/db";
+import type { Appointment, Lead, Conversation, ChatMessage, Ticket } from "@all/db";
 import { requireSession, type Session } from "./auth";
-import { isSupabase } from "./env";
+import { isSupabase, isDjango } from "./env";
 import { can } from "./permissions";
 import { toE164 } from "./format";
 import { db, emit, addLeadEvent } from "./data/mock/store";
 import { inbound, processBatch, pushMessage } from "./data/mock/chat";
 import { book, move, offerNext, releaseTicket, SlotTaken } from "./data/mock/booking";
+
+import { djangoAction } from "./django";
 
 // Серверные действия фазы 1б: чаты и календарь. Входы валидируются zod, права — как в RLS.
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
@@ -48,6 +50,7 @@ const windowOpen = (c: { channel: string; windowExpiresAt?: string }) =>
 
 /** «Взять чат»: AI замолкает в этом диалоге, черновики снимаются */
 export async function takeChat(id: string) {
+  if (isDjango) return djangoAction<Conversation>("takeChat", [id]);
   return run(async () => {
     const s = await ops();
     const c = conv(s, id);
@@ -64,6 +67,7 @@ export async function takeChat(id: string) {
 }
 
 export async function returnToAi(id: string) {
+  if (isDjango) return djangoAction<Conversation>("returnToAi", [id]);
   return run(async () => {
     const s = await ops();
     const c = conv(s, id);
@@ -77,6 +81,7 @@ export async function returnToAi(id: string) {
 
 /** Режим «черновик»: AI готовит ответы, оператор подтверждает */
 export async function setDraftMode(id: string, on: boolean) {
+  if (isDjango) return djangoAction<Conversation>("setDraftMode", [id, on]);
   return run(async () => {
     const s = await ops();
     const c = conv(s, id);
@@ -88,6 +93,7 @@ export async function setDraftMode(id: string, on: boolean) {
 }
 
 export async function closeChat(id: string) {
+  if (isDjango) return djangoAction<Conversation>("closeChat", [id]);
   return run(async () => {
     const s = await ops();
     const c = conv(s, id);
@@ -101,6 +107,7 @@ export async function closeChat(id: string) {
 }
 
 export async function markRead(id: string) {
+  if (isDjango) return djangoAction("markRead", [id]);
   return run(async () => {
     const s = await requireSession();
     const c = conv(s, id);
@@ -112,6 +119,7 @@ const sendSchema = z.object({ body: z.string().trim().min(1).max(4000), template
 
 /** Ответ оператора. Вне 24-часового окна — только одобренные шаблоны. Оператор, ответивший в чате AI, забирает его. */
 export async function sendMessage(id: string, input: z.input<typeof sendSchema>) {
+  if (isDjango) return djangoAction<ChatMessage>("sendMessage", [id, input]);
   return run(async () => {
     const s = await ops();
     const c = conv(s, id);
@@ -134,6 +142,7 @@ export async function sendMessage(id: string, input: z.input<typeof sendSchema>)
 
 /** Черновик AI: «Отправить» как есть или после правки */
 export async function approveDraft(id: string, messageId: string, editedBody?: string) {
+  if (isDjango) return djangoAction<ChatMessage>("approveDraft", [id, messageId, editedBody]);
   return run(async () => {
     const s = await ops();
     const c = conv(s, id);
@@ -150,6 +159,7 @@ export async function approveDraft(id: string, messageId: string, editedBody?: s
 }
 
 export async function createLeadFromChat(id: string, title: string) {
+  if (isDjango) return djangoAction<Lead>("createLeadFromChat", [id, title]);
   return run(async () => {
     const s = await ops();
     const c = conv(s, id);
@@ -170,6 +180,7 @@ export async function createLeadFromChat(id: string, title: string) {
 
 /** Тестовое сообщение «от клиента» — проверить поведение AI в канале (кабинет, демо-режим) */
 export async function simulateClientMessage(input: { conversationId?: string; channel: "widget" | "telegram" | "whatsapp"; body: string; contactId?: string }) {
+  if (isDjango) return djangoAction<Conversation>("simulateClientMessage", [input]);
   return run(async () => {
     await ops();
     const v = z.object({ conversationId: z.string().optional(), channel: z.enum(["widget", "telegram", "whatsapp"]), body: z.string().trim().min(1).max(1000), contactId: z.string().optional() }).parse(input);
@@ -190,6 +201,7 @@ const apptSchema = z.object({
 });
 
 export async function createAppointment(input: z.input<typeof apptSchema>) {
+  if (isDjango) return djangoAction<Appointment>("createAppointment", [input]);
   return run(async () => {
     const s = await ops();
     const v = apptSchema.parse(input);
@@ -219,6 +231,7 @@ export async function createAppointment(input: z.input<typeof apptSchema>) {
 
 /** Перенос перетаскиванием (другое время или другой ресурс) */
 export async function moveAppointment(id: string, patch: { resourceId?: string; startsAt: string; durationMin?: number }) {
+  if (isDjango) return djangoAction<Appointment>("moveAppointment", [id, patch]);
   return run(async () => {
     await ops();
     const a = db.appointments.find((x) => x.id === id);
@@ -231,6 +244,7 @@ export async function moveAppointment(id: string, patch: { resourceId?: string; 
 }
 
 export async function setAppointmentStatus(id: string, status: Appointment["status"]) {
+  if (isDjango) return djangoAction<Appointment>("setAppointmentStatus", [id, status]);
   return run(async () => {
     await ops();
     const a = db.appointments.find((x) => x.id === id);
@@ -243,6 +257,7 @@ export async function setAppointmentStatus(id: string, status: Appointment["stat
 
 // ───────────── Талоны и лист ожидания ─────────────
 export async function cancelTicket(id: string) {
+  if (isDjango) return djangoAction<Ticket>("cancelTicket", [id]);
   return run(async () => {
     await ops();
     const t = db.tickets.find((x) => x.id === id);
@@ -253,6 +268,7 @@ export async function cancelTicket(id: string) {
 }
 
 export async function offerToNext(scope: string) {
+  if (isDjango) return djangoAction("offerToNext", [scope]);
   return run(async () => {
     await ops();
     if (!offerNext(z.string().parse(scope))) throw new UserError("Свободных талонов или ожидающих нет.");
@@ -260,6 +276,7 @@ export async function offerToNext(scope: string) {
 }
 
 export async function addToWaitlist(input: { scope: string; contactName: string; contactPhone: string }) {
+  if (isDjango) return djangoAction("addToWaitlist", [input]);
   return run(async () => {
     await ops();
     const v = z.object({ scope: z.string().min(2), contactName: z.string().trim().min(2).max(100), contactPhone: z.string() }).parse(input);
@@ -274,6 +291,7 @@ export async function addToWaitlist(input: { scope: string; contactName: string;
 }
 
 export async function resolveOffer(id: string, accepted: boolean) {
+  if (isDjango) return djangoAction("resolveOffer", [id, accepted]);
   return run(async () => {
     await ops();
     const w = db.waitlist.find((x) => x.id === id && x.status === "offered");

@@ -3,18 +3,21 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import {
-  completeness, initialState, missingRequired, respondOffline, type DialogState, type EngineReply,
+  completeness, initialState, missingRequired, respondOffline, type DialogState, type EngineReply, demoSnapshot, detectDemoRole, DEMO_ROLE_KEYS, type DemoRole,
 } from "@all/dialog";
 import type { AiMode, Faq, Lead, MemberRole, Service, StaffMember } from "@all/db";
 import { requireSession, startMockSession, endSession, type Session } from "./auth";
 import { can, type Action } from "./permissions";
 import { toE164 } from "./format";
-import { isSupabase, mockAuthAllowed } from "./env";
+import { isSupabase, mockAuthAllowed, isDjango } from "./env";
 import { db, emit, draftSnapshot, newPublishedSnapshot, patchLead, addLeadEvent, setAiModeInternal, publishedSnapshot } from "./data/mock/store";
 import * as sbm from "./data/sb/mutations";
 import { KbError, draftSnapshot as sbDraftSnapshot } from "./data/sb/kb";
 import { createServerSupabase } from "./supabase/server";
 import { assistantTurn, TurnError, type TurnReply } from "./ai/turn";
+
+import { djangoAction, djangoFetch, DJANGO_COOKIE, DjangoError } from "./django";
+import type { Contact, Member } from "@all/db";
 
 export type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string; fields?: string[] };
 
@@ -38,7 +41,7 @@ async function run<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
   } catch (e) {
     if (e instanceof Forbidden) return { ok: false, error: "Недостаточно прав. Обратитесь к собственнику компании." };
     if (e instanceof z.ZodError) return { ok: false, error: "Проверьте заполнение полей.", fields: e.issues.map((i) => i.path.join(".")) };
-    if (e instanceof UserError || e instanceof KbError || e instanceof TurnError) return { ok: false, error: e.message };
+    if (e instanceof DjangoError || e instanceof UserError || e instanceof KbError || e instanceof TurnError) return { ok: false, error: e.message };
     if (e instanceof sbm.MutationError) {
       if (e.code === "42501") return { ok: false, error: "Недостаточно прав. Обратитесь к собственнику компании." };
       if (!e.code || e.code === "23505") return { ok: false, error: e.message };
@@ -58,6 +61,7 @@ function notInMvp() {
 // ───────────── Переключатель AI ─────────────
 const aiMode = z.enum(["on", "leads_only", "all_human", "off"]);
 export async function setAiMode(mode: AiMode) {
+  if (isDjango) return djangoAction("setAiMode", [mode]);
   return run(async () => {
     const s = await guard("toggle_ai");
     const m = aiMode.parse(mode);
@@ -81,6 +85,7 @@ const leadPatch = z.object({
 }).refine((p) => p.status !== "lost" || !!p.lostReason, { message: "lost_reason_required", path: ["lostReason"] });
 
 export async function updateLead(id: string, patch: z.input<typeof leadPatch>) {
+  if (isDjango) return djangoAction<Lead>("updateLead", [id, patch]);
   return run(async () => {
     const s = await guard("edit_leads");
     const p = leadPatch.parse(patch);
@@ -100,6 +105,7 @@ export async function updateLead(id: string, patch: z.input<typeof leadPatch>) {
 }
 
 export async function bulkUpdateLeads(ids: string[], patch: z.input<typeof leadPatch>) {
+  if (isDjango) return djangoAction<number>("bulkUpdateLeads", [ids, patch]);
   return run(async () => {
     const s = await guard("edit_leads");
     const p = leadPatch.parse(patch);
@@ -123,6 +129,7 @@ export async function bulkUpdateLeads(ids: string[], patch: z.input<typeof leadP
 }
 
 export async function commentLead(id: string, text: string) {
+  if (isDjango) return djangoAction("commentLead", [id, text]);
   return run(async () => {
     const s = await guard("edit_leads");
     const body = z.string().trim().min(1).max(2000).parse(text);
@@ -146,6 +153,7 @@ const newLead = z.object({
   comment: z.string().max(1000).optional(),
 });
 export async function createLead(input: z.input<typeof newLead>) {
+  if (isDjango) return djangoAction<Lead>("createLead", [input]);
   return run(async () => {
     const s = await guard("edit_leads");
     const v = newLead.parse(input);
@@ -174,6 +182,7 @@ export async function createLead(input: z.input<typeof newLead>) {
 
 // ───────────── Звонки ─────────────
 export async function rateCall(id: string, rating: -1 | 1, reason?: string) {
+  if (isDjango) return djangoAction("rateCall", [id, rating, reason]);
   return run(async () => {
     const s = await guard("listen_audio");
     if (isSupabase) {
@@ -194,6 +203,7 @@ export async function rateCall(id: string, rating: -1 | 1, reason?: string) {
 }
 
 export async function markCallback(id: string) {
+  if (isDjango) return djangoAction("markCallback", [id]);
   return run(async () => {
     const s = await guard("edit_leads");
     if (isSupabase) { await sbm.updateCall(s, z.string().uuid().parse(id), { callback_done_at: new Date().toISOString() }); return; }
@@ -206,6 +216,7 @@ export async function markCallback(id: string) {
 // ───────────── Контакты ─────────────
 const contactPatch = z.object({ name: z.string().trim().max(100).optional(), phone: z.string().optional(), notes: z.string().max(2000).optional(), tags: z.array(z.string().max(30)).max(20).optional() });
 export async function updateContact(id: string, patch: z.input<typeof contactPatch>) {
+  if (isDjango) return djangoAction<Contact>("updateContact", [id, patch]);
   return run(async () => {
     const s = await guard("edit_leads");
     const p = contactPatch.parse(patch);
@@ -228,6 +239,7 @@ export async function updateContact(id: string, patch: z.input<typeof contactPat
 }
 
 export async function createContact(input: { name?: string; phone: string }) {
+  if (isDjango) return djangoAction<Contact>("createContact", [input]);
   return run(async () => {
     const s = await guard("edit_leads");
     const e = toE164(z.string().parse(input.phone));
@@ -242,6 +254,7 @@ export async function createContact(input: { name?: string; phone: string }) {
 }
 
 export async function mergeContacts(primaryId: string, otherIds: string[]) {
+  if (isDjango) return djangoAction("mergeContacts", [primaryId, otherIds]);
   return run(async () => {
     const s = await guard("edit_leads");
     notInMvp();
@@ -264,6 +277,7 @@ export async function mergeContacts(primaryId: string, otherIds: string[]) {
 
 /** Удаление данных контакта по запросу: аудио, расшифровки, сообщения; запись в аудит */
 export async function eraseContact(id: string) {
+  if (isDjango) return djangoAction("eraseContact", [id]);
   return run(async () => {
     const s = await guard("export_delete");
     if (isSupabase) { await sbm.eraseContact(s, z.string().uuid().parse(id)); return; }
@@ -285,6 +299,7 @@ async function guardKb() {
 }
 
 export async function setField(key: string, value: unknown) {
+  if (isDjango) return djangoAction<{ completeness: number }>("setField", [key, value]);
   return run(async () => {
     const s = await guardKb();
     z.string().regex(/^[a-z_]+\.[a-z_]+$/).parse(key);
@@ -324,6 +339,7 @@ const serviceSchema = z.object({
 });
 
 export async function upsertServices(rows: z.input<typeof serviceSchema>[]) {
+  if (isDjango) return djangoAction<Service[]>("upsertServices", [rows]);
   return run(async () => {
     const s = await guardKb();
     const parsed = z.array(serviceSchema).max(500).parse(rows);
@@ -352,6 +368,7 @@ export async function upsertServices(rows: z.input<typeof serviceSchema>[]) {
 }
 
 export async function deleteRows(table: "services" | "staff" | "faq", ids: string[]) {
+  if (isDjango) return djangoAction("deleteRows", [table, ids]);
   return run(async () => {
     const s = await guardKb();
     z.enum(["services", "staff", "faq"]).parse(table);
@@ -362,6 +379,7 @@ export async function deleteRows(table: "services" | "staff" | "faq", ids: strin
 }
 
 export async function bulkPrice(ids: string[], pct: number) {
+  if (isDjango) return djangoAction("bulkPrice", [ids, pct]);
   return run(async () => {
     const s = await guardKb();
     const p = z.number().min(-90).max(500).parse(pct);
@@ -386,6 +404,7 @@ const staffSchema = z.object({
   bookable: z.boolean().default(true),
 });
 export async function upsertStaff(rows: z.input<typeof staffSchema>[]) {
+  if (isDjango) return djangoAction<StaffMember[]>("upsertStaff", [rows]);
   return run(async () => {
     const s = await guardKb();
     const parsed = z.array(staffSchema).max(200).parse(rows);
@@ -418,6 +437,7 @@ const faqSchema = z.object({
   active: z.boolean().default(true),
 });
 export async function upsertFaq(rows: z.input<typeof faqSchema>[]) {
+  if (isDjango) return djangoAction<Faq[]>("upsertFaq", [rows]);
   return run(async () => {
     const s = await guardKb();
     const parsed = z.array(faqSchema).max(500).parse(rows);
@@ -438,6 +458,7 @@ export async function upsertFaq(rows: z.input<typeof faqSchema>[]) {
 }
 
 export async function answerUnanswered(id: string, shortAnswer: string) {
+  if (isDjango) return djangoAction("answerUnanswered", [id, shortAnswer]);
   return run(async () => {
     const s = await guardKb();
     if (isSupabase) { await sbm.answerUnanswered(s, z.string().uuid().parse(id), z.string().trim().min(2).max(400).parse(shortAnswer)); return; }
@@ -451,6 +472,7 @@ export async function answerUnanswered(id: string, shortAnswer: string) {
 
 /** Публикация: проверка обязательных → новая версия → снимок для голоса. Текущие звонки доигрывают на старой версии. */
 export async function publishQuestionnaire() {
+  if (isDjango) return djangoAction<number>("publishQuestionnaire", []);
   return run(async () => {
     const s = await guard("publish");
     if (isSupabase) {
@@ -474,6 +496,7 @@ export async function publishQuestionnaire() {
 }
 
 export async function rollbackQuestionnaire(version: number) {
+  if (isDjango) return djangoAction<number>("rollbackQuestionnaire", [version]);
   return run(async () => {
     const s = await guard("publish");
     notInMvp();
@@ -497,7 +520,7 @@ export async function testChat(message: string, state?: DialogState): Promise<Re
   return run(async () => {
     const s = await guard("edit_questionnaire");
     const text = z.string().trim().min(1).max(1000).parse(message);
-    const snap = isSupabase ? await sbDraftSnapshot(await createServerSupabase(), s.companyId) : draftSnapshot();
+    const snap = isDjango ? (await import("@all/dialog")).buildSnapshot(await (async () => { const q = await (await import("./data/repo")).getQuestionnaire(s); return { ...q, version: q.draft.version, services: q.services.map((x) => ({ ...x, staff: x.staffIds })) }; })()) : isSupabase ? await sbDraftSnapshot(await createServerSupabase(), s.companyId) : draftSnapshot();
     const r = respondOffline(snap, text, state ?? initialState(), { channel: "chat", mode: "consult" });
     if (r.toolCalls.some((t) => t.name === "create_lead" && t.status === "ok")) r.text += " (Проверка черновика: заявка не сохраняется. Настоящую заявку создаёт тест в разделе «Ассистент».)";
     return r;
@@ -517,6 +540,7 @@ export async function assistantMessage(input: z.input<typeof turnSchema>): Promi
     const s = await requireSession();
     if (s.member.role !== "owner" && s.member.role !== "admin") throw new Forbidden();
     const v = turnSchema.parse(input);
+    if (isDjango) return (await import("./ai/django-turn")).djangoAssistantTurn(v);
     if (!isSupabase) {
       // Локальная разработка без базы: ответ по опубликованному снимку, заявка не сохраняется
       const r = respondOffline(publishedSnapshot(), v.message, initialState(), { channel: v.channel, mode: "consult" });
@@ -531,7 +555,7 @@ export async function assistantMessage(input: z.input<typeof turnSchema>): Promi
 
 /** Демо-линия в браузере (фаза 0): без входа, по снимку демо-роли, с ограничителем по IP */
 const demoHits = new Map<string, { n: number; at: number }>();
-export async function demoChat(message: string, state?: DialogState): Promise<Result<EngineReply>> {
+export async function demoChat(message: string, state?: DialogState, role: DemoRole = "autoservice"): Promise<Result<EngineReply>> {
   return run(async () => {
     const { headers } = await import("next/headers");
     const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
@@ -539,8 +563,16 @@ export async function demoChat(message: string, state?: DialogState): Promise<Re
     const now = Date.now();
     if (h && now - h.at < 86400_000 && h.n >= 120) throw new UserError("Лимит демо на сегодня исчерпан. Позвоните на демо-линию или оставьте заявку.");
     demoHits.set(ip, { n: h && now - h.at < 86400_000 ? h.n + 1 : 1, at: h && now - h.at < 86400_000 ? h.at : now });
-    const { DEMO_SNAPSHOT } = await import("@all/dialog");
-    const r = respondOffline(DEMO_SNAPSHOT, z.string().trim().min(1).max(500).parse(message), state ?? initialState(), { channel: "voice", mode: "demo", phase: "0" });
+    const text = z.string().trim().min(1).max(500).parse(message);
+    const nextRole = detectDemoRole(text);
+    const switchRole = !!nextRole && (nextRole !== role || /а теперь|дава[йт]|как будто|роль|^[1-6]$/i.test(text));
+    const snapshot = demoSnapshot(nextRole ?? z.enum(DEMO_ROLE_KEYS).parse(role));
+    const r = respondOffline(snapshot, text, switchRole ? initialState() : state ?? initialState(), { channel: "voice", mode: "demo", phase: "0" });
+    if (switchRole) r.text = snapshot.style.greeting;
+    if (/^(стоп|выйти из демо|выход)[.!]?$/i.test(text)) {
+      r.text = "Демонстрация завершена. В реальной работе я бы сохранил карточку обращения и передал заявку администратору. Назовите другую сферу, чтобы продолжить.";
+      r.state = initialState();
+    }
     if (r.toolCalls.some((t) => t.name === "create_lead" && t.status === "ok")) r.text += " (Это публичное демо: заявка не сохраняется.)";
     return r;
   });
@@ -551,8 +583,8 @@ export async function runQuestionCheck() {
   return run(async () => {
     const s = await guard("edit_questionnaire");
     const { SPHERE_QUESTIONS } = await import("./sphere-questions");
-    const snap = isSupabase ? await sbDraftSnapshot(await createServerSupabase(), s.companyId) : draftSnapshot();
-    return (SPHERE_QUESTIONS.autoservice ?? []).map((q) => {
+    const snap = isDjango ? (await import("@all/dialog")).buildSnapshot(await (async () => { const q = await (await import("./data/repo")).getQuestionnaire(s); return { ...q, version: q.draft.version, services: q.services.map((x) => ({ ...x, staff: x.staffIds })) }; })()) : isSupabase ? await sbDraftSnapshot(await createServerSupabase(), s.companyId) : draftSnapshot();
+    return (SPHERE_QUESTIONS[snap.company.sphere] ?? SPHERE_QUESTIONS.autoservice ?? []).map((q) => {
       const r = respondOffline(snap, q.text, initialState(), { channel: "chat", mode: "consult" });
       const cannot = !!r.unanswered || /уточнит администратор/i.test(r.text);
       return { question: q.text, answer: r.text, source: r.sources[0]?.source ?? r.toolCalls[0]?.name ?? "", cannot, field: q.field };
@@ -573,6 +605,7 @@ const assistantSchema = z.object({
   maxCallMinutes: z.number().int().min(2).max(60).optional(), onLimit: z.enum(["leads_only", "all_human"]).optional(),
 });
 export async function updateAssistant(patch: z.input<typeof assistantSchema>) {
+  if (isDjango) return djangoAction("updateAssistant", [patch]);
   return run(async () => {
     const s = await guard("publish");
     const p = assistantSchema.parse(patch);
@@ -593,6 +626,7 @@ export async function updateAssistant(patch: z.input<typeof assistantSchema>) {
 }
 
 export async function updateNumber(id: string, patch: { receive?: "always" | "no_answer" | "schedule"; noAnswerSeconds?: number }) {
+  if (isDjango) return djangoAction("updateNumber", [id, patch]);
   return run(async () => {
     notInMvp();
     const s = await guard("publish");
@@ -607,6 +641,7 @@ export async function updateNumber(id: string, patch: { receive?: "always" | "no
 // ───────────── Команда ─────────────
 const inviteSchema = z.object({ contact: z.string().trim().min(5).max(120), role: z.enum(["admin", "staff", "accountant"]) });
 export async function inviteMember(input: z.input<typeof inviteSchema>) {
+  if (isDjango) return djangoAction<Member & { inviteUrl?: string }>("inviteMember", [input]);
   return run(async () => {
     notInMvp();
     const s = await guard("manage_team");
@@ -622,6 +657,7 @@ export async function inviteMember(input: z.input<typeof inviteSchema>) {
 }
 
 export async function updateMember(id: string, patch: { role?: MemberRole; permissions?: Record<string, boolean>; branchIds?: string[]; transferPhone?: string }) {
+  if (isDjango) return djangoAction("updateMember", [id, patch]);
   return run(async () => {
     notInMvp();
     const s = await guard("manage_team");
@@ -637,6 +673,7 @@ export async function updateMember(id: string, patch: { role?: MemberRole; permi
 
 /** Отключение: доступ теряется сразу (JWT короткоживущий), заявки предлагается переназначить */
 export async function disableMember(id: string, reassignTo?: string) {
+  if (isDjango) return djangoAction<number>("disableMember", [id, reassignTo]);
   return run(async () => {
     notInMvp();
     const s = await guard("manage_team");
@@ -655,6 +692,7 @@ export async function disableMember(id: string, reassignTo?: string) {
 
 // ───────────── Тариф ─────────────
 export async function setOverage(policy: "pay" | "stop_ai", capMinor?: number) {
+  if (isDjango) return djangoAction("setOverage", [policy, capMinor]);
   return run(async () => {
     notInMvp();
     const s = await guard("view_billing");
@@ -666,6 +704,7 @@ export async function setOverage(policy: "pay" | "stop_ai", capMinor?: number) {
 }
 
 export async function buyMinutes(pack: 100 | 500 | 1000) {
+  if (isDjango) return djangoAction<string>("buyMinutes", [pack]);
   return run(async () => {
     notInMvp();
     const s = await guard("view_billing");
@@ -680,6 +719,7 @@ export async function buyMinutes(pack: 100 | 500 | 1000) {
 
 // ───────────── Уведомления ─────────────
 export async function markNotificationsRead(ids?: string[]) {
+  if (isDjango) return djangoAction("markNotificationsRead", [ids]);
   return run(async () => {
     const s = await requireSession();
     if (isSupabase) { await sbm.markNotificationsRead(s, ids ? z.array(z.string().uuid()).max(200).parse(ids) : undefined); return; }
@@ -689,6 +729,7 @@ export async function markNotificationsRead(ids?: string[]) {
 }
 
 export async function setNotificationPref(userId: string, kind: string, channel: "app" | "telegram" | "email" | "push", on: boolean) {
+  if (isDjango) return djangoAction("setNotificationPref", [userId, kind, channel, on]);
   return run(async () => {
     notInMvp();
     const s = await requireSession();
@@ -703,6 +744,7 @@ export async function setNotificationPref(userId: string, kind: string, channel:
 // ───────────── Настройки ─────────────
 const companySchema = z.object({ name: z.string().trim().min(2).max(120).optional(), timezone: z.string().optional(), currency: z.enum(["KGS", "KZT", "RUB", "USD"]).optional() });
 export async function updateCompany(patch: z.input<typeof companySchema>) {
+  if (isDjango) return djangoAction("updateCompany", [patch]);
   return run(async () => {
     notInMvp();
     const s = await guard("manage_team");
@@ -722,6 +764,7 @@ export async function setLocale(locale: "ru" | "ky") {
 }
 
 export async function createApiKey(name: string, scopes: string[]) {
+  if (isDjango) return djangoAction<string>("createApiKey", [name, scopes]);
   return run(async () => {
     notInMvp();
     const s = await guard("export_delete");
@@ -733,6 +776,7 @@ export async function createApiKey(name: string, scopes: string[]) {
 }
 
 export async function revokeApiKey(id: string) {
+  if (isDjango) return djangoAction("revokeApiKey", [id]);
   return run(async () => {
     notInMvp();
     const s = await guard("export_delete");
@@ -742,6 +786,7 @@ export async function revokeApiKey(id: string) {
 }
 
 export async function requestExport() {
+  if (isDjango) return djangoAction<{ url: string }>("requestExport", []);
   return run(async () => {
     notInMvp();
     const s = await guard("export_delete");
@@ -750,6 +795,7 @@ export async function requestExport() {
 }
 
 export async function eraseByPhone(phone: string) {
+  if (isDjango) return djangoAction("eraseByPhone", [phone]);
   return run(async () => {
     notInMvp();
     await guard("export_delete");
@@ -764,6 +810,7 @@ export async function eraseByPhone(phone: string) {
 
 // ───────────── Интеграции ─────────────
 export async function retryIntegrationEvent(key: string, logId: string) {
+  if (isDjango) return djangoAction("retryIntegrationEvent", [key, logId]);
   return run(async () => {
     notInMvp();
     await guard("manage_integrations");
@@ -774,6 +821,7 @@ export async function retryIntegrationEvent(key: string, logId: string) {
 }
 
 export async function linkTelegram(memberId: string) {
+  if (isDjango) return djangoAction<string>("linkTelegram", [memberId]);
   return run(async () => {
     notInMvp();
     await requireSession();
@@ -865,13 +913,20 @@ export async function logout() {
   revalidatePath("/", "layout");
 }
 
-const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(200), password: z.string().min(1).max(200) });
+const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(200), password: z.string().min(1).max(200), otp: z.string().max(6).optional() });
 /**
  * Вход по email и паролю через Supabase Auth. Сессия — в httpOnly-cookie @supabase/ssr, обновляется в proxy.ts.
  * После входа проверяется членство в компании: без него сессия сразу закрывается.
  */
-export async function loginWithPassword(input: z.input<typeof credentials>): Promise<Result<{ next: string }>> {
+export async function loginWithPassword(input: z.input<typeof credentials>): Promise<Result<{ next: string; mfaRequired?: boolean; setupSecret?: string }>> {
   return run(async () => {
+    if (isDjango) {
+      const r = await djangoFetch<{ token?: string; mfaRequired?: boolean; setupSecret?: string }>("/auth/login/", { method: "POST", body: JSON.stringify(credentials.parse(input)) });
+      if (r.mfaRequired) return { next: "/login", mfaRequired: true, setupSecret: r.setupSecret };
+      if (!r.token) throw new UserError("Не удалось войти.");
+      (await cookies()).set(DJANGO_COOKIE, r.token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 12 * 3600 });
+      return { next: "/app" };
+    }
     if (!isSupabase) throw new UserError("Вход по паролю работает с DATA_SOURCE=supabase.");
     const v = credentials.safeParse(input);
     if (!v.success) throw new UserError("Введите email и пароль.");

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { SignupForm } from "@/components/auth/signup-form";
-import { isSupabase } from "@/lib/env";
+import { isSupabase, isDjango } from "@/lib/env";
 
 export const metadata = { title: "Регистрация" };
 
@@ -11,8 +11,8 @@ export default async function SignupPage() {
   return (
     <div className="flex flex-col gap-5">
       <h1 className="font-display text-2xl font-medium tracking-[-0.03em]">{t("signupTitle")}</h1>
-      {isSupabase ? (
-        <p className="text-[13px] text-fg-muted">Это демо-среда хакатона: регистрация новых компаний закрыта. Войдите с тестовым аккаунтом, который выдали организаторы.</p>
+      {isSupabase || isDjango ? (
+        <p className="text-[13px] text-fg-muted">{t("pilotRegistration")}</p>
       ) : (
         <>
           <p className="text-[13px] text-fg-muted">{t("signupClosed")}</p>

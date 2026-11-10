@@ -5,14 +5,14 @@ import { DemoRecording } from "@/components/public/demo-widgets";
 import { admin } from "@/lib/data/queries";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { notFound } from "next/navigation";
-import { isSupabase } from "@/lib/env";
+import { isSupabase, isDjango } from "@/lib/env";
 
 export const metadata = { title: "Результат демо-звонка", robots: { index: false } };
 
 /** Ссылка из SMS: расшифровка, карточка звонка и заявка так, как их видит бизнес */
 export default async function DemoResult({ params }: { params: Promise<{ token: string }> }) {
   // Результаты телефонной демо-линии появятся вместе с телефонией; в Hackathon MVP страницы нет
-  if (isSupabase) notFound();
+  if (isSupabase || isDjango) notFound();
   const { token } = await params;
   const t = await getTranslations("demo");
   const call = admin.demoCalls().find((c) => c.token === token) ?? (token === "example" ? admin.demoCalls()[0] : undefined);

@@ -17,3 +17,9 @@ supabase/.temp
 HACKATHON_ACCESS.md
 *.access.md
 .vercel
+
+# Django runtime data and generated files
+*.sqlite3
+*.sqlite3-*
+apps/backend/staticfiles/
+*.pyc

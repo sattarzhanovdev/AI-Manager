@@ -7,7 +7,7 @@ import { Button, CardAction, Checkbox, Field, Input, KanbanBoard, PageHeader, Pi
 import type { Appointment, Resource, Ticket, WaitlistEntry } from "@all/db";
 import { addToWaitlist, cancelTicket, createAppointment, moveAppointment, offerToNext, resolveOffer, setAppointmentStatus } from "@/lib/actions-1b";
 import { useRealtime } from "@/lib/use-realtime";
-import { formatPhone, formatTime } from "@/lib/format";
+import { formatPhone, formatTime as baseFormatTime } from "@/lib/format";
 
 type Data = {
   resources: Resource[];
@@ -18,7 +18,12 @@ type Data = {
   branches: { id: string; name: string }[];
 };
 
-const TZ_H = 6; // Asia/Bishkek
+import { calendarClock } from "@/lib/calendar-clock";
+const TimezoneContext = React.createContext("Asia/Bishkek");
+function useCalendarClock() {
+  const timezone = React.useContext(TimezoneContext);
+  return React.useMemo(() => ({ ...calendarClock(timezone), formatTime: (iso: string) => baseFormatTime(iso, timezone) }), [timezone]);
+}
 const STEP = 15;
 const DAY_START = 8;
 const DAY_END = 21;
@@ -27,20 +32,17 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAYS_RU = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
-/** Начало локального дня (Бишкек) в UTC-мс */
-function dayStart(t: number) {
-  const local = new Date(t + TZ_H * HOUR);
-  local.setUTCHours(0, 0, 0, 0);
-  return local.getTime() - TZ_H * HOUR;
-}
-const localDate = (t: number) => new Date(t + TZ_H * HOUR);
-
 // Цвет по услуге — из нейтральной палитры (design.md: без новых брендовых цветов), различимы яркостью и штриховкой
 const SERVICE_SHADES = ["rgba(237,237,237,0.16)", "rgba(237,237,237,0.10)", "rgba(143,179,255,0.16)", "rgba(60,203,127,0.14)", "rgba(245,165,36,0.14)", "rgba(237,237,237,0.22)"];
 const shadeFor = (id?: string) => SERVICE_SHADES[id ? Math.abs([...id].reduce((h, c) => h * 31 + c.charCodeAt(0), 0)) % SERVICE_SHADES.length : 0]!;
 const STATUS_TONE: Record<Appointment["status"], Tone> = { held: "warning", booked: "info", cancelled: "neutral", done: "success", no_show: "danger", blocked: "neutral" };
 
-export function CalendarView({ data: initial }: { data: Data }) {
+export function CalendarView({ data, timezone = "Asia/Bishkek" }: { data: Data; timezone?: string }) {
+  return <TimezoneContext.Provider value={timezone}><CalendarContent key={timezone} data={data} /></TimezoneContext.Provider>;
+}
+
+function CalendarContent({ data: initial }: { data: Data }) {
+  const { dayStart, localDate, timezone } = useCalendarClock();
   const t = useTranslations("calendar");
   const router = useRouter();
   const [data, setData] = React.useState(initial);
@@ -111,7 +113,7 @@ export function CalendarView({ data: initial }: { data: Data }) {
               <Button size="icon-sm" variant="ghost" aria-label="Назад" onClick={() => setDay((d) => d - (view === "week" ? 7 : 1) * 24 * HOUR)}><ChevronLeft /></Button>
               <Button size="sm" onClick={() => setDay(dayStart(Date.now()))}>{t("today")}</Button>
               <Button size="icon-sm" variant="ghost" aria-label="Вперёд" onClick={() => setDay((d) => d + (view === "week" ? 7 : 1) * 24 * HOUR)}><ChevronRight /></Button>
-              <span className="text-[13px] font-medium">{new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Bishkek", weekday: "long", day: "numeric", month: "long" }).format(new Date(day))}</span>
+              <span className="text-[13px] font-medium">{new Intl.DateTimeFormat("ru-RU", { timeZone: timezone, weekday: "long", day: "numeric", month: "long" }).format(new Date(day))}</span>
             </div>
             {view === "board" ? (
               <DayBoard day={day} now={now} appointments={data.appointments.filter((a) => !hidden.has(a.resourceId))} resources={data.resources} selectedId={selected?.id} onOpen={setSelected}
@@ -144,6 +146,7 @@ function Grid({ columns, appointments, now, multiDay, onSelect, onSlot, onMove, 
   columns: { day: number; resource: Resource }[]; appointments: Appointment[]; now: number; multiDay: boolean; selectedId?: string;
   onSelect: (a: Appointment) => void; onSlot: (resourceId: string, startsAt: number) => void; onMove: (a: Appointment, resourceId: string, startsAt: number) => void;
 }) {
+  const { dayStart, localDate, formatTime } = useCalendarClock();
   const t = useTranslations("calendar");
   const slots = (DAY_END - DAY_START) * (60 / STEP);
   const [drag, setDrag] = React.useState<{ id: string; resourceId: string; day: number; slot: number } | null>(null);
@@ -151,7 +154,7 @@ function Grid({ columns, appointments, now, multiDay, onSelect, onSlot, onMove, 
   React.useEffect(() => {
     const h = localDate(now).getUTCHours();
     scroller.current?.scrollTo({ top: Math.max(0, (h - DAY_START - 1) * 4 * ROW_PX) });
-  }, [now]);
+  }, [now, localDate]);
   const slotTime = (day: number, slot: number) => day + (DAY_START * 60 + slot * STEP) * MIN;
   const colW = multiDay ? 120 : 180;
 
@@ -240,6 +243,7 @@ type DayCol = "upcoming" | "soon" | "done" | "no_show";
 
 /** Доска дня для ресепшена: кто скоро придёт, кто пришёл, кто не пришёл — отметка одним кликом или перетаскиванием */
 function DayBoard({ day, now, appointments, resources, selectedId, onOpen, onChanged }: { day: number; now: number; appointments: Appointment[]; resources: Resource[]; selectedId?: string; onOpen: (a: Appointment) => void; onChanged: (a: Appointment) => void }) {
+  const { dayStart, formatTime } = useCalendarClock();
   const t = useTranslations("calendar");
   const items = appointments.filter((a) => dayStart(new Date(a.startsAt).getTime()) === day && a.status !== "blocked" && a.status !== "cancelled")
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -288,6 +292,7 @@ function DayBoard({ day, now, appointments, resources, selectedId, onOpen, onCha
 }
 
 function MiniCalendar({ day, onPick, appointments }: { day: number; onPick: (d: number) => void; appointments: Appointment[] }) {
+  const { dayStart, localDate, fromLocal } = useCalendarClock();
   const [month, setMonth] = React.useState(() => { const d = localDate(day); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1); });
   const m = new Date(month);
   const firstDow = (m.getUTCDay() + 6) % 7;
@@ -305,7 +310,7 @@ function MiniCalendar({ day, onPick, appointments }: { day: number; onPick: (d: 
       <div className="grid grid-cols-7 gap-px">
         {Array.from({ length: firstDow }, (_, i) => <span key={`e${i}`} />)}
         {Array.from({ length: daysIn }, (_, i) => {
-          const d = Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), i + 1) - TZ_H * HOUR;
+          const d = fromLocal(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), i + 1));
           return (
             <button key={i} onClick={() => onPick(d)} className={cn("relative h-7 rounded-md text-xs tabular-nums", d === day ? "bg-accent text-accent-fg" : "hover:bg-hover", d === today && d !== day && "font-semibold text-fg underline")}>
               {i + 1}{busy.has(d) && d !== day && <span className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-fg-muted" />}
@@ -318,6 +323,7 @@ function MiniCalendar({ day, onPick, appointments }: { day: number; onPick: (d: 
 }
 
 function NewAppointment({ draft, resources, services, onClose, onCreated }: { draft: { resourceId: string; startsAt: number }; resources: Resource[]; services: Data["services"]; onClose: () => void; onCreated: (a: Appointment) => void }) {
+  const { dayStart, localDate } = useCalendarClock();
   const t = useTranslations("calendar");
   const tc = useTranslations("common");
   const [block, setBlock] = React.useState(false);
@@ -365,6 +371,7 @@ function NewAppointment({ draft, resources, services, onClose, onCreated }: { dr
 }
 
 function AppointmentPanel({ a, resource, onClose, onChanged }: { a: Appointment; resource?: Resource; onClose: () => void; onChanged: (a: Appointment) => void }) {
+  const { formatTime, timezone } = useCalendarClock();
   const t = useTranslations("calendar");
   const tc = useTranslations("common");
   const set = async (status: Appointment["status"]) => { const r = await setAppointmentStatus(a.id, status); if (r.ok) onChanged(r.data!); else toast.error(r.error); };
@@ -381,7 +388,7 @@ function AppointmentPanel({ a, resource, onClose, onChanged }: { a: Appointment;
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
           <dt className="text-xs text-fg-muted">{t("staff")}</dt><dd>{resource?.name}</dd>
-          <dt className="text-xs text-fg-muted">{t("start")}</dt><dd className="tabular-nums">{new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Bishkek", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(a.startsAt))} – {formatTime(a.endsAt)}</dd>
+          <dt className="text-xs text-fg-muted">{t("start")}</dt><dd className="tabular-nums">{new Intl.DateTimeFormat("ru-RU", { timeZone: timezone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(a.startsAt))} – {formatTime(a.endsAt)}</dd>
           {a.contactName && <><dt className="text-xs text-fg-muted">{t("client")}</dt><dd>{a.contactName}</dd></>}
           {a.contactPhone && <><dt className="text-xs text-fg-muted">{t("phone")}</dt><dd><a href={`tel:${a.contactPhone}`} className="tabular-nums hover:underline">{formatPhone(a.contactPhone)}</a></dd></>}
           {a.note && <><dt className="text-xs text-fg-muted">{t("note")}</dt><dd>{a.note}</dd></>}
@@ -402,6 +409,7 @@ function AppointmentPanel({ a, resource, onClose, onChanged }: { a: Appointment;
 
 /** Режим «Талоны» (поликлиники): партии талонов с временем открытия, «талонов нет», лист ожидания по специальностям */
 function TicketsMode({ tickets, waitlist }: { tickets: Ticket[]; waitlist: WaitlistEntry[] }) {
+  const { formatTime, timezone } = useCalendarClock();
   const t = useTranslations("calendar");
   const router = useRouter();
   const doctors = Array.from(new Map(tickets.map((x) => [x.doctor, x.specialty])).entries());
@@ -422,7 +430,7 @@ function TicketsMode({ tickets, waitlist }: { tickets: Ticket[]; waitlist: Waitl
                   <span className="text-[13px] font-medium">{doctor}</span><span className="text-xs text-fg-muted">{specialty}</span>
                   <span className="ml-auto">{open ? <Pill tone="success">{t("ticketsOpen", { count: open })}</Pill> : <Pill tone="danger">{t("noTickets")}</Pill>}</span>
                 </header>
-                <div className="px-3 pt-2 text-[11px] text-fg-faint">{t("opensAt", { time: formatTime(list[0]!.opensAt) })} · {new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Bishkek", day: "numeric", month: "short" }).format(new Date(list[0]!.startsAt))}</div>
+                <div className="px-3 pt-2 text-[11px] text-fg-faint">{t("opensAt", { time: formatTime(list[0]!.opensAt) })} · {new Intl.DateTimeFormat("ru-RU", { timeZone: timezone, day: "numeric", month: "short" }).format(new Date(list[0]!.startsAt))}</div>
                 <ul className="grid grid-cols-2 gap-1.5 p-3 sm:grid-cols-4">
                   {list.map((tk) => (
                     <li key={tk.id} className={cn("flex flex-col rounded-[8px] border px-2 py-1 text-xs", tk.status === "open" ? "border-success/40 bg-success-bg" : tk.status === "offered" ? "border-warning/40 bg-warning-bg" : "border-line")}>

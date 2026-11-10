@@ -12,7 +12,7 @@ import { AdminNav } from "@/components/admin/admin-nav";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const s = await getSession();
   if (!s) redirect("/login");
-  if (env.DATA_SOURCE === "supabase") notFound();
+  if (env.DATA_SOURCE !== "mock") notFound();
   const t = await getTranslations("admin");
   return (
     <div className="flex h-dvh overflow-hidden bg-app">

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getAssistant, getNumbers, getCurrentPlan, getMembers } from "@/lib/data/repo";
-import { isSupabase, llmConfig } from "@/lib/env";
+import { isSupabase, isDjango, llmConfig } from "@/lib/env";
 import { AssistantView } from "@/components/assistant/assistant-view";
 
 export const metadata = { title: "Ассистент" };
@@ -16,6 +16,6 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
   return (
     <AssistantView settings={settings} numbers={numbers} plan={plan} canEdit={can(s.member.role, "publish")} autoTest={sp.test === "1"}
       members={members.filter((m) => m.role !== "accountant" && !m.disabledAt).map((m) => ({ userId: m.userId, name: m.name }))}
-      engine={{ llm: !!llm, model: llm?.model, mock: !isSupabase }} />
+      engine={{ llm: !isDjango && !!llm, model: llm?.model, mock: !isSupabase && !isDjango }} />
   );
 }

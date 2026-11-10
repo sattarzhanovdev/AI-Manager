@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { isSupabase } from "@/lib/env";
 import { getCall, getLead, getContact } from "@/lib/data/repo";
-import { getIntegrationLogs, getConversation } from "@/lib/data/queries";
+import { getIntegrationLogs, getConversation } from "@/lib/data/repo";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +19,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ kind: s
       kind === "call" ? await getCall(s, id) :
       kind === "lead" ? await getLead(s, id) :
       kind === "contact" && s.member.role !== "accountant" ? await getContact(s, id) :
-      !isSupabase && kind === "conversation" && s.member.role !== "accountant" ? getConversation(s, id) :
-      !isSupabase && kind === "integration-log" && s.member.role === "owner" ? getIntegrationLogs(id) :
+      !isSupabase && kind === "conversation" && s.member.role !== "accountant" ? await getConversation(s, id) :
+      !isSupabase && kind === "integration-log" && s.member.role === "owner" ? await getIntegrationLogs(s, id) :
       undefined;
     if (data === undefined || data === null) return NextResponse.json({ error: "not_found" }, { status: 404 });
     return NextResponse.json(data);

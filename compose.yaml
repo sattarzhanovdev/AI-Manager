@@ -1,0 +1,72 @@
+# Local/staging service bundle. Put credentials in an untracked .env file.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: allmanager
+      POSTGRES_USER: allmanager_migrator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      DATABASE_RUNTIME_PASSWORD: ${DATABASE_RUNTIME_PASSWORD:?Set DATABASE_RUNTIME_PASSWORD}
+      DATABASE_WORKER_PASSWORD: ${DATABASE_WORKER_PASSWORD:?Set DATABASE_WORKER_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./apps/backend/scripts/init-runtime-role.sh:/docker-entrypoint-initdb.d/01-runtime.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U allmanager_migrator -d allmanager]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes: [redisdata:/data]
+  migrate:
+    build: {context: ., dockerfile: apps/backend/Dockerfile}
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
+      DATABASE_URL: postgresql://allmanager_migrator:${POSTGRES_PASSWORD}@db:5432/allmanager
+    command: [python, manage.py, migrate, --noinput]
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    build: {context: ., dockerfile: apps/backend/Dockerfile}
+    environment: &backend-env
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+      DATABASE_URL: postgresql://allmanager_runtime:${DATABASE_RUNTIME_PASSWORD}@db:5432/allmanager
+      REDIS_URL: redis://redis:6379/0
+      CACHE_URL: redis://redis:6379/1
+    ports: ['127.0.0.1:8000:8000']
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+  web:
+    build: {context: ., dockerfile: apps/web/Dockerfile}
+    environment:
+      DATA_SOURCE: django
+      DJANGO_API_URL: http://api:8000/api/v1
+      DEMO_ENVIRONMENT: "0"
+      ALLOW_MOCK_AUTH: "0"
+    ports: ['127.0.0.1:3000:3000']
+    depends_on: [api]
+  worker:
+    build: {context: ., dockerfile: apps/backend/Dockerfile}
+    environment:
+      <<: *backend-env
+      DATABASE_URL: postgresql://allmanager_worker:${DATABASE_WORKER_PASSWORD}@db:5432/allmanager
+    command: [celery, -A, config, worker, --loglevel=INFO]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+  beat:
+    build: {context: ., dockerfile: apps/backend/Dockerfile}
+    environment:
+      <<: *backend-env
+      DATABASE_URL: postgresql://allmanager_worker:${DATABASE_WORKER_PASSWORD}@db:5432/allmanager
+    command: [celery, -A, config, beat, --loglevel=INFO, --schedule=/tmp/celerybeat-schedule]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+volumes:
+  pgdata:
+  redisdata:

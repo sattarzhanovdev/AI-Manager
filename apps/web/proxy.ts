@@ -18,6 +18,10 @@ function toLogin(req: NextRequest) {
  */
 export async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
+  if (process.env.DATA_SOURCE === "django") {
+    if (isProtected(path) && !req.cookies.has("all_django_session")) return toLogin(req);
+    return NextResponse.next();
+  }
   if (process.env.DATA_SOURCE !== "supabase") {
     if (isProtected(path) && !req.cookies.has("all_session")) return toLogin(req);
     return NextResponse.next();

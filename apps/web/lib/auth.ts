@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Member, MemberRole } from "@all/db";
 import { db } from "./data/mock/store";
-import { env, mockAuthAllowed } from "./env";
+import { env, mockAuthAllowed, isDjango } from "./env";
 import { createServerSupabase } from "./supabase/server";
 
 export interface Session {
@@ -16,6 +16,8 @@ export interface Session {
   supportMode?: boolean;
 }
 
+import { djangoFetch, DJANGO_COOKIE, DjangoError } from "./django";
+
 const COOKIE = "all_session";
 
 /**
@@ -26,6 +28,11 @@ const COOKIE = "all_session";
  */
 export const getSession = cache(async (): Promise<Session | null> => {
   const store = await cookies();
+  if (isDjango) {
+    if (!store.has(DJANGO_COOKIE)) return null;
+    try { return await djangoFetch<Session>("/auth/session/"); }
+    catch (e) { if (e instanceof DjangoError && [401, 403, 404].includes(e.status)) return null; throw e; }
+  }
   if (env.DATA_SOURCE === "supabase") {
     const sb = await createServerSupabase();
     // Проверяем подпись JWT без обязательного обращения к Auth API на каждом
@@ -79,6 +86,10 @@ export async function startMockSession(userId: string) {
 
 export async function endSession() {
   const store = await cookies();
+  if (isDjango) {
+    try { await djangoFetch("/auth/session/", { method: "DELETE" }); }
+    finally { store.delete(DJANGO_COOKIE); }
+  }
   if (env.DATA_SOURCE === "supabase") {
     const sb = await createServerSupabase();
     await sb.auth.signOut();

@@ -4,7 +4,8 @@ import { z } from "zod";
 // Все переменные проверяются при старте. Сервисный ключ и ключи LLM доступны только на сервере.
 const int = (d: number) => z.coerce.number().int().positive().default(d);
 const schema = z.object({
-  DATA_SOURCE: z.enum(["mock", "supabase"]).default("mock"),
+  DATA_SOURCE: z.enum(["mock", "supabase", "django"]).default("mock"),
+  DJANGO_API_URL: z.string().url().default("http://127.0.0.1:8000/api/v1"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
@@ -59,3 +60,5 @@ export function llmConfig(): LlmConfig {
   if (p === "openai" && env.OPENAI_API_KEY) return { provider: "openai", model: env.LLM_MODEL ?? "gpt-4.1-mini", key: env.OPENAI_API_KEY };
   return null;
 }
+
+export const isDjango = env.DATA_SOURCE === "django";

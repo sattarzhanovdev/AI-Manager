@@ -2,11 +2,12 @@ import { defineConfig } from "@playwright/test";
 
 // E2E_MODE=supabase — сценарии Hackathon MVP против настоящего Supabase (e2e/mvp.spec.ts);
 // по умолчанию — mock-режим для локальной разработки без базы.
+const django = process.env.E2E_MODE === "django";
 const supabase = process.env.E2E_MODE === "supabase";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: supabase ? ["mvp.spec.ts", "audio.spec.ts", "voice-phone.spec.ts"] : ["cabinet.spec.ts", "phase1b.spec.ts", "audio.spec.ts"],
+  testMatch: django ? ["django.spec.ts"] : supabase ? ["mvp.spec.ts", "audio.spec.ts", "voice-phone.spec.ts"] : ["cabinet.spec.ts", "phase1b.spec.ts", "audio.spec.ts"],
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   // В CI ошибки попадают в аннотации GitHub (видны без доступа к логам)

@@ -1,0 +1,2723 @@
+openapi: 3.0.3
+info:
+  title: ALL-менеджер API
+  version: 1.0.0
+paths:
+  /api/v1/auth/accept-invite/:
+    post:
+      operationId: api_v1_auth_accept_invite_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InviteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InviteInput'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: api_v1_auth_login_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          description: ''
+  /api/v1/auth/session/:
+    get:
+      operationId: api_v1_auth_session_retrieve
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: api_v1_auth_session_destroy
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/sessions/:
+    get:
+      operationId: api_v1_auth_sessions_retrieve
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: api_v1_auth_sessions_destroy
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/branches/:
+    get:
+      operationId: api_v1_branches_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBranchList'
+          description: ''
+    post:
+      operationId: api_v1_branches_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Branch'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Branch'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Branch'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+  /api/v1/branches/{id}/:
+    get:
+      operationId: api_v1_branches_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this branch.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+    patch:
+      operationId: api_v1_branches_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this branch.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBranch'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBranch'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBranch'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+    delete:
+      operationId: api_v1_branches_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this branch.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/calls/:
+    get:
+      operationId: api_v1_calls_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCallList'
+          description: ''
+    post:
+      operationId: api_v1_calls_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Call'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Call'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Call'
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+          description: ''
+  /api/v1/calls/{id}/:
+    get:
+      operationId: api_v1_calls_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this call.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+          description: ''
+    patch:
+      operationId: api_v1_calls_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this call.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCall'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCall'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCall'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+          description: ''
+    delete:
+      operationId: api_v1_calls_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this call.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/commands/{name}/:
+    post:
+      operationId: api_v1_commands_create
+      parameters:
+      - in: path
+        name: name
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommandInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CommandInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CommandInput'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/contacts/:
+    get:
+      operationId: api_v1_contacts_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContactList'
+          description: ''
+    post:
+      operationId: api_v1_contacts_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contact'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Contact'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Contact'
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+  /api/v1/contacts/{id}/:
+    get:
+      operationId: api_v1_contacts_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this contact.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+    patch:
+      operationId: api_v1_contacts_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this contact.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedContact'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedContact'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedContact'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+    delete:
+      operationId: api_v1_contacts_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this contact.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/events/:
+    get:
+      operationId: api_v1_events_retrieve
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/export/:
+    get:
+      operationId: api_v1_export_retrieve
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/faq/:
+    get:
+      operationId: api_v1_faq_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFaqList'
+          description: ''
+    post:
+      operationId: api_v1_faq_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Faq'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Faq'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Faq'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faq'
+          description: ''
+  /api/v1/faq/{id}/:
+    get:
+      operationId: api_v1_faq_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faq.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faq'
+          description: ''
+    patch:
+      operationId: api_v1_faq_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faq.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFaq'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFaq'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFaq'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faq'
+          description: ''
+    delete:
+      operationId: api_v1_faq_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faq.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/invoices/:
+    get:
+      operationId: api_v1_invoices_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoiceList'
+          description: ''
+    post:
+      operationId: api_v1_invoices_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+  /api/v1/invoices/{id}/:
+    get:
+      operationId: api_v1_invoices_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this invoice.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+    patch:
+      operationId: api_v1_invoices_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this invoice.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInvoice'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInvoice'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInvoice'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+    delete:
+      operationId: api_v1_invoices_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this invoice.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/leads/:
+    get:
+      operationId: api_v1_leads_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLeadList'
+          description: ''
+    post:
+      operationId: api_v1_leads_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Lead'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Lead'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Lead'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+          description: ''
+  /api/v1/leads/{id}/:
+    get:
+      operationId: api_v1_leads_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lead.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+          description: ''
+    patch:
+      operationId: api_v1_leads_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lead.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLead'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLead'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLead'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+          description: ''
+    delete:
+      operationId: api_v1_leads_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this lead.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/provider-events/:
+    post:
+      operationId: api_v1_provider_events_create
+      description: Normalized gateway boundary. Signature binds tenant, event ID and
+        payload.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/read/{name}/:
+    get:
+      operationId: api_v1_read_retrieve
+      parameters:
+      - in: path
+        name: name
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/resources/:
+    get:
+      operationId: api_v1_resources_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResourceList'
+          description: ''
+    post:
+      operationId: api_v1_resources_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Resource'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Resource'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+  /api/v1/resources/{id}/:
+    get:
+      operationId: api_v1_resources_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this resource.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+    patch:
+      operationId: api_v1_resources_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this resource.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedResource'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedResource'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedResource'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+          description: ''
+    delete:
+      operationId: api_v1_resources_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this resource.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/services/:
+    get:
+      operationId: api_v1_services_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedServiceList'
+          description: ''
+    post:
+      operationId: api_v1_services_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Service'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Service'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: ''
+  /api/v1/services/{id}/:
+    get:
+      operationId: api_v1_services_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this service.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: ''
+    patch:
+      operationId: api_v1_services_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this service.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedService'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedService'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedService'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: ''
+    delete:
+      operationId: api_v1_services_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this service.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/staff/:
+    get:
+      operationId: api_v1_staff_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStaffList'
+          description: ''
+    post:
+      operationId: api_v1_staff_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Staff'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Staff'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Staff'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Staff'
+          description: ''
+  /api/v1/staff/{id}/:
+    get:
+      operationId: api_v1_staff_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this staff.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Staff'
+          description: ''
+    patch:
+      operationId: api_v1_staff_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this staff.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStaff'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStaff'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStaff'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Staff'
+          description: ''
+    delete:
+      operationId: api_v1_staff_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this staff.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/tickets/:
+    get:
+      operationId: api_v1_tickets_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTicketList'
+          description: ''
+    post:
+      operationId: api_v1_tickets_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Ticket'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Ticket'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Ticket'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+          description: ''
+  /api/v1/tickets/{id}/:
+    get:
+      operationId: api_v1_tickets_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this ticket.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+          description: ''
+    patch:
+      operationId: api_v1_tickets_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this ticket.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTicket'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTicket'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTicket'
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+          description: ''
+    delete:
+      operationId: api_v1_tickets_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this ticket.
+        required: true
+      tags:
+      - api
+      security:
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /health/:
+    get:
+      operationId: health_retrieve
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+components:
+  schemas:
+    Branch:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 160
+        address:
+          type: string
+          maxLength: 500
+        landmarks:
+          type: string
+          maxLength: 500
+        hours: {}
+        phones: {}
+      required:
+      - created_at
+      - id
+      - name
+    Call:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        caller:
+          type: string
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_s:
+          type: integer
+          readOnly: true
+        billed_seconds:
+          type: integer
+          readOnly: true
+        type:
+          type: string
+          maxLength: 24
+        outcome:
+          type: string
+          maxLength: 20
+        summary:
+          type: string
+        rating:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        rating_reason:
+          type: string
+          maxLength: 200
+        flags: {}
+        transferred:
+          type: boolean
+        callback_done_at:
+          type: string
+          format: date-time
+          nullable: true
+        kb_version:
+          type: integer
+          readOnly: true
+          nullable: true
+        prompt_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        tariff_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        cost_minor:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        turns:
+          readOnly: true
+        tool_calls:
+          readOnly: true
+        external_id:
+          type: string
+          readOnly: true
+          nullable: true
+        number:
+          type: string
+          format: uuid
+          nullable: true
+        contact:
+          type: string
+          format: uuid
+          nullable: true
+        assignee:
+          type: integer
+          nullable: true
+      required:
+      - billed_seconds
+      - caller
+      - created_at
+      - duration_s
+      - external_id
+      - id
+      - kb_version
+      - started_at
+      - tool_calls
+      - turns
+    CommandInput:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            nullable: true
+          maxItems: 10
+      required:
+      - args
+    Contact:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        phone:
+          type: string
+          nullable: true
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 100
+        channels: {}
+        tags: {}
+        notes:
+          type: string
+        last_seen_at:
+          type: string
+          format: date-time
+        interactions_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+      required:
+      - created_at
+      - id
+    Faq:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        question:
+          type: string
+          maxLength: 500
+        synonyms: {}
+        short_answer:
+          type: string
+          maxLength: 2000
+        long_answer:
+          type: string
+        source:
+          type: string
+          maxLength: 200
+        active:
+          type: boolean
+      required:
+      - created_at
+      - id
+      - question
+      - short_answer
+    InviteInput:
+      type: object
+      properties:
+        token:
+          type: string
+          maxLength: 200
+        password:
+          type: string
+          writeOnly: true
+          maxLength: 200
+        name:
+          type: string
+          maxLength: 100
+      required:
+      - name
+      - password
+      - token
+    Invoice:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        number:
+          type: string
+          maxLength: 40
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        amount_minor:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        currency:
+          type: string
+          maxLength: 3
+        status:
+          allOf:
+          - $ref: '#/components/schemas/InvoiceStatusEnum'
+          readOnly: true
+      required:
+      - amount_minor
+      - created_at
+      - id
+      - number
+      - period_end
+      - period_start
+      - status
+    InvoiceStatusEnum:
+      enum:
+      - draft
+      - issued
+      - paid
+      - overdue
+      - void
+      type: string
+      description: |-
+        * `draft` - draft
+        * `issued` - issued
+        * `paid` - paid
+        * `overdue` - overdue
+        * `void` - void
+    Lead:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        number:
+          type: integer
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          readOnly: true
+        source_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        channel:
+          type: string
+          maxLength: 24
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        title:
+          type: string
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/LeadStatusEnum'
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        tags: {}
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        lost_reason:
+          type: string
+          maxLength: 300
+        payload: {}
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        contact:
+          type: string
+          format: uuid
+          nullable: true
+        assignee:
+          type: integer
+          nullable: true
+        branch:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - closed_at
+      - created_at
+      - id
+      - number
+      - source
+      - source_id
+      - title
+      - type
+      - updated_at
+    LeadStatusEnum:
+      enum:
+      - new
+      - in_progress
+      - waiting
+      - won
+      - lost
+      type: string
+      description: |-
+        * `new` - new
+        * `in_progress` - in_progress
+        * `waiting` - waiting
+        * `won` - won
+        * `lost` - lost
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+          maxLength: 200
+        otp:
+          type: string
+          maxLength: 6
+      required:
+      - email
+      - password
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        mfaRequired:
+          type: boolean
+        setupSecret:
+          type: string
+    PaginatedBranchList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Branch'
+    PaginatedCallList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Call'
+    PaginatedContactList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contact'
+    PaginatedFaqList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Faq'
+    PaginatedInvoiceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invoice'
+    PaginatedLeadList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lead'
+    PaginatedResourceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+    PaginatedServiceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+    PaginatedStaffList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Staff'
+    PaginatedTicketList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ticket'
+    PatchedBranch:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 160
+        address:
+          type: string
+          maxLength: 500
+        landmarks:
+          type: string
+          maxLength: 500
+        hours: {}
+        phones: {}
+    PatchedCall:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        caller:
+          type: string
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_s:
+          type: integer
+          readOnly: true
+        billed_seconds:
+          type: integer
+          readOnly: true
+        type:
+          type: string
+          maxLength: 24
+        outcome:
+          type: string
+          maxLength: 20
+        summary:
+          type: string
+        rating:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        rating_reason:
+          type: string
+          maxLength: 200
+        flags: {}
+        transferred:
+          type: boolean
+        callback_done_at:
+          type: string
+          format: date-time
+          nullable: true
+        kb_version:
+          type: integer
+          readOnly: true
+          nullable: true
+        prompt_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        tariff_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        cost_minor:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        turns:
+          readOnly: true
+        tool_calls:
+          readOnly: true
+        external_id:
+          type: string
+          readOnly: true
+          nullable: true
+        number:
+          type: string
+          format: uuid
+          nullable: true
+        contact:
+          type: string
+          format: uuid
+          nullable: true
+        assignee:
+          type: integer
+          nullable: true
+    PatchedContact:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        phone:
+          type: string
+          nullable: true
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 100
+        channels: {}
+        tags: {}
+        notes:
+          type: string
+        last_seen_at:
+          type: string
+          format: date-time
+        interactions_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+    PatchedFaq:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        question:
+          type: string
+          maxLength: 500
+        synonyms: {}
+        short_answer:
+          type: string
+          maxLength: 2000
+        long_answer:
+          type: string
+        source:
+          type: string
+          maxLength: 200
+        active:
+          type: boolean
+    PatchedInvoice:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        number:
+          type: string
+          maxLength: 40
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        amount_minor:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        currency:
+          type: string
+          maxLength: 3
+        status:
+          allOf:
+          - $ref: '#/components/schemas/InvoiceStatusEnum'
+          readOnly: true
+    PatchedLead:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        number:
+          type: integer
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SourceEnum'
+          readOnly: true
+        source_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        channel:
+          type: string
+          maxLength: 24
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        title:
+          type: string
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/LeadStatusEnum'
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        tags: {}
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        lost_reason:
+          type: string
+          maxLength: 300
+        payload: {}
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        contact:
+          type: string
+          format: uuid
+          nullable: true
+        assignee:
+          type: integer
+          nullable: true
+        branch:
+          type: string
+          format: uuid
+          nullable: true
+    PatchedResource:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        kind:
+          type: string
+          maxLength: 20
+        branch:
+          type: string
+          format: uuid
+          nullable: true
+        staff:
+          type: string
+          format: uuid
+          nullable: true
+    PatchedService:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        synonyms: {}
+        description:
+          type: string
+        price_type:
+          $ref: '#/components/schemas/PriceTypeEnum'
+        price_min:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        price_max:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        currency:
+          type: string
+          maxLength: 3
+        duration_min:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        staff_ids: {}
+        branch_ids: {}
+        active:
+          type: boolean
+    PatchedStaff:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        specialties: {}
+        service_ids: {}
+        hours: {}
+        languages: {}
+        transfer_phone:
+          type: string
+          maxLength: 20
+        bookable:
+          type: boolean
+        branch:
+          type: string
+          format: uuid
+          nullable: true
+    PatchedTicket:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        doctor:
+          type: string
+          maxLength: 100
+        specialty:
+          type: string
+          maxLength: 100
+        starts_at:
+          type: string
+          format: date-time
+        opens_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TicketStatusEnum'
+        contact_name:
+          type: string
+          maxLength: 100
+        contact_phone:
+          type: string
+          maxLength: 20
+    PriceTypeEnum:
+      enum:
+      - exact
+      - range
+      - after_inspection
+      type: string
+      description: |-
+        * `exact` - exact
+        * `range` - range
+        * `after_inspection` - after_inspection
+    PriorityEnum:
+      enum:
+      - normal
+      - urgent
+      type: string
+      description: |-
+        * `normal` - normal
+        * `urgent` - urgent
+    Resource:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        kind:
+          type: string
+          maxLength: 20
+        branch:
+          type: string
+          format: uuid
+          nullable: true
+        staff:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - created_at
+      - id
+      - name
+    Service:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        synonyms: {}
+        description:
+          type: string
+        price_type:
+          $ref: '#/components/schemas/PriceTypeEnum'
+        price_min:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        price_max:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        currency:
+          type: string
+          maxLength: 3
+        duration_min:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        staff_ids: {}
+        branch_ids: {}
+        active:
+          type: boolean
+      required:
+      - created_at
+      - id
+      - name
+      - price_type
+    SourceEnum:
+      enum:
+      - manual
+      - chat
+      - call
+      - demo
+      type: string
+      description: |-
+        * `manual` - manual
+        * `chat` - chat
+        * `call` - call
+        * `demo` - demo
+    Staff:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        specialties: {}
+        service_ids: {}
+        hours: {}
+        languages: {}
+        transfer_phone:
+          type: string
+          maxLength: 20
+        bookable:
+          type: boolean
+        branch:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - created_at
+      - id
+      - name
+    Ticket:
+      type: object
+      description: Camel case contract shared with Next.js; JSON payload keys stay
+        untouched.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        doctor:
+          type: string
+          maxLength: 100
+        specialty:
+          type: string
+          maxLength: 100
+        starts_at:
+          type: string
+          format: date-time
+        opens_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TicketStatusEnum'
+        contact_name:
+          type: string
+          maxLength: 100
+        contact_phone:
+          type: string
+          maxLength: 20
+      required:
+      - created_at
+      - doctor
+      - id
+      - opens_at
+      - specialty
+      - starts_at
+    TicketStatusEnum:
+      enum:
+      - closed
+      - open
+      - offered
+      - taken
+      - cancelled
+      type: string
+      description: |-
+        * `closed` - closed
+        * `open` - open
+        * `offered` - offered
+        * `taken` - taken
+        * `cancelled` - cancelled
+    TypeEnum:
+      enum:
+      - booking
+      - consultation
+      - order
+      - complaint
+      - reschedule
+      - callback
+      - other
+      type: string
+      description: |-
+        * `booking` - booking
+        * `consultation` - consultation
+        * `order` - order
+        * `complaint` - complaint
+        * `reschedule` - reschedule
+        * `callback` - callback
+        * `other` - other
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer

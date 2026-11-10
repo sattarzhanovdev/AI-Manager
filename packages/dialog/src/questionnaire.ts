@@ -183,7 +183,7 @@ export function blockProgress(block: BlockDef, values: FieldValues, counts: Tabl
 }
 
 /** Индекс полноты 0..100 по весам блоков */
-export function completeness(values: FieldValues, counts: TableCounts, phase: "1a" | "1b" = "1a"): number {
+export function completeness(values: FieldValues, counts: TableCounts, phase: "1a" | "1b" = "1b"): number {
   const blocks = phase === "1a" ? BLOCKS.filter((b) => b.phase1a) : BLOCKS;
   const totalWeight = blocks.reduce((s, b) => s + b.weight, 0);
   const score = blocks.reduce((s, b) => s + b.weight * blockProgress(b, values, counts), 0);
@@ -197,7 +197,7 @@ export interface MissingField {
 }
 
 /** Обязательные поля, без которых публикация невозможна */
-export function missingRequired(values: FieldValues, counts: TableCounts, phase: "1a" | "1b" = "1a"): MissingField[] {
+export function missingRequired(values: FieldValues, counts: TableCounts, phase: "1a" | "1b" = "1b"): MissingField[] {
   const out: MissingField[] = [];
   for (const b of BLOCKS) {
     if (phase === "1a" && !b.phase1a) continue;

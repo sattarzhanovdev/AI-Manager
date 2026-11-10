@@ -10,9 +10,11 @@ import type { ApiKey, NotificationPref, PhoneNumber } from "@/lib/data/types";
 import { createApiKey, eraseByPhone, requestExport, revokeApiKey, setLocale, setNotificationPref, updateCompany } from "@/lib/actions";
 import { formatDateTime, formatPhone } from "@/lib/format";
 
+import { SessionList, type SessionItem } from "./session-list";
 import { TABS, type Tab } from "./tabs";
 
 interface Props {
+  sessions?: SessionItem[];
   tab: Tab; company: Company; branches: Branch[]; numbers: PhoneNumber[]; members: Member[]; prefs: Record<string, NotificationPref[]>;
   apiKeys: ApiKey[]; audit: AuditEntry[]; me: Member; isOwner: boolean; locale: string;
 }
@@ -40,7 +42,7 @@ export function SettingsView(p: Props) {
             {p.tab === "api" && <ApiTab keys={p.apiKeys} canManage={p.isOwner} />}
             {p.tab === "webhooks" && <Locked text={t("webhooksPhase")} />}
             {p.tab === "data" && <DataTab canManage={p.isOwner} />}
-            {p.tab === "security" && <SecurityTab audit={p.audit} isOwner={p.isOwner} />}
+            {p.tab === "security" && <SecurityTab audit={p.audit} isOwner={p.isOwner} sessions={p.sessions} />}
           </div>
         </div>
       </div>
@@ -61,7 +63,7 @@ function CompanyTab({ company, isOwner, locale }: Props) {
   return (
     <form className="grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={async (e) => { e.preventDefault(); const r = await updateCompany({ name, timezone: tz, currency }); if (r.ok) { toast(tc("saved")); router.refresh(); } else toast.error(r.error); }}>
       <Field label={t("companyName")}><Input value={name} onChange={(e) => setName(e.target.value)} disabled={!isOwner} /></Field>
-      <Field label={t("sphere")}><Input value="Автосервис" disabled /></Field>
+      <Field label={t("sphere")}><Input value={company.sphere} disabled /></Field>
       <Field label={t("timezone")}><Select value={tz} onChange={(e) => setTz(e.target.value)} disabled={!isOwner}>{["Asia/Bishkek", "Asia/Almaty", "Europe/Moscow", "Asia/Novosibirsk"].map((z) => <option key={z}>{z}</option>)}</Select></Field>
       <Field label={t("currency")}><Select value={currency} onChange={(e) => setCurrency(e.target.value as Company["currency"])} disabled={!isOwner}>{["KGS", "KZT", "RUB", "USD"].map((c) => <option key={c}>{c}</option>)}</Select></Field>
       <Field label={t("locale")}><Select value={locale} onChange={async (e) => { await setLocale(e.target.value as "ru"); router.refresh(); }}><option value="ru">Русский</option><option value="ky">Кыргызча</option></Select></Field>
@@ -188,7 +190,7 @@ function DataTab({ canManage }: { canManage: boolean }) {
   if (!canManage) return <Locked text={tc("noAccessHint")} />;
   return (
     <div className="flex flex-col gap-6">
-      <section><H>{t("export")}</H><Button icon={<Download />} onClick={async () => { const r = await requestExport(); if (r.ok) toast(t("exportQueued")); }}>{t("export")}</Button></section>
+      <section><H>{t("export")}</H><Button icon={<Download />} onClick={async () => { const r = await requestExport(); if (r.ok) { if (r.data?.url) window.location.assign(r.data.url); else toast(t("exportQueued")); } else toast.error(r.error); }}>{t("export")}</Button></section>
       <section>
         <H>{t("eraseByPhone")}</H>
         <div className="flex gap-2"><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("erasePh")} className="w-64" /><Button variant="danger" icon={<Trash2 />} disabled={phone.length < 6} onClick={() => setConfirm(true)}>{t("erase")}</Button></div>
@@ -200,16 +202,16 @@ function DataTab({ canManage }: { canManage: boolean }) {
   );
 }
 
-function SecurityTab({ audit, isOwner }: { audit: AuditEntry[]; isOwner: boolean }) {
+function SecurityTab({ audit, isOwner, sessions }: { audit: AuditEntry[]; isOwner: boolean; sessions?: SessionItem[] }) {
   const t = useTranslations("settings");
   const [q, setQ] = React.useState("");
   const rows = audit.filter((a) => !q || `${a.actorName} ${a.action} ${a.entity} ${a.detail ?? ""}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex items-center gap-3"><ShieldCheck className="size-5 text-success" /><div><p className="text-[13px]">{t("twofa")}</p><p className="text-xs text-fg-muted">{t("twofaOn")}</p></div></section>
+      <section className="flex items-center gap-3"><ShieldCheck className="size-5 text-success" /><div><p className="text-[13px]">{t("twofa")}</p><p className="text-xs text-fg-muted">{sessions && !isOwner ? t("twofaOptional") : t("twofaOn")}</p></div></section>
       <section>
         <H>{t("sessions")}</H>
-        <ul className="rounded-[10px] border border-line text-[13px]"><li className="flex items-center gap-3 px-3 py-2"><span className="flex-1">Chrome · macOS · Бишкек</span><Pill tone="success">{t("thisDevice")}</Pill></li></ul>
+        {sessions ? <SessionList sessions={sessions} /> : <p className="text-xs text-fg-muted">{t("sessionListUnavailable")}</p>}
       </section>
       {isOwner && (
         <section>

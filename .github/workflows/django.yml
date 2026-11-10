@@ -1,0 +1,51 @@
+name: Django MVP
+on: [push, pull_request]
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: allmanager
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: --health-cmd 'pg_isready -U postgres' --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      DJANGO_DEBUG: '1'
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/allmanager
+      DATA_SOURCE: django
+      DEMO_ENVIRONMENT: '0'
+      PROVISION_PASSWORD: local-e2e-password-only
+      E2E_MODE: django
+      E2E_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r apps/backend/requirements.txt
+      - run: python apps/backend/manage.py test core --noinput
+      - run: python apps/backend/manage.py makemigrations --check --dry-run
+      - run: python apps/backend/manage.py spectacular --file /tmp/openapi.yaml --validate --fail-on-warn
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck && pnpm test
+      - run: pnpm --filter @all/web exec tsx ../backend/scripts/sync-questionnaire.ts --check
+      - run: pnpm --filter @all/web exec playwright install --with-deps chromium
+      - run: python apps/backend/manage.py migrate && python apps/backend/manage.py seed_demo
+      - run: |
+          python apps/backend/manage.py runserver 127.0.0.1:8000 --noreload > /tmp/django.log 2>&1 &
+          pnpm --filter @all/web dev > /tmp/web.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health/ && curl -fsS http://localhost:3000/login > /dev/null; then break; fi
+            sleep 2
+          done
+          pnpm --filter @all/web e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: django-browser-traces
+          path: apps/web/test-results

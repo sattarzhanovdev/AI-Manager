@@ -4,7 +4,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getCompany, getBranches, getSidebarStats, getNotifications, getMembers, MVP_DISABLED } from "@/lib/data/repo";
-import { listConversations, getUsage, getCurrentPlan, getIntegrations } from "@/lib/data/queries";
+import { listConversations, getUsage, getCurrentPlan, getIntegrations } from "@/lib/data/repo";
 import { env, isSupabase, mockAuthAllowed } from "@/lib/env";
 
 export default async function CabinetLayout({ children }: { children: React.ReactNode }) {
@@ -24,8 +24,8 @@ export default async function CabinetLayout({ children }: { children: React.Reac
   if (role === "admin") hidden.push("billing", "team");
 
   // Тариф, минуты и интеграции есть только в mock-хранилище; в MVP их не показываем вовсе
-  const usage = isSupabase ? null : getUsage();
-  const broken = isSupabase ? undefined : getIntegrations().find((i) => i.status === "error" || i.status === "reconnect");
+  const usage = isSupabase ? null : await getUsage(s);
+  const broken = isSupabase ? undefined : (await getIntegrations(s)).find((i) => i.status === "error" || i.status === "reconnect");
 
   return (
     <AppShell
@@ -34,9 +34,9 @@ export default async function CabinetLayout({ children }: { children: React.Reac
       canToggleAi={can(role, "toggle_ai")}
       aiMode={company.aiMode}
       minutesLeft={usage ? Math.max(0, usage.minutesTotal - usage.minutesUsed) : 0}
-      planName={usage ? getCurrentPlan().name : ""}
+      planName={usage ? (await getCurrentPlan(s)).name : ""}
       counts={{
-        chats: isSupabase || role === "accountant" ? 0 : listConversations(s).filter((c) => c.needsHuman && c.state !== "closed").length,
+        chats: isSupabase || role === "accountant" ? 0 : (await listConversations(s)).filter((c) => c.needsHuman && c.state !== "closed").length,
         leads: sidebar.newUnassignedLeads,
         unanswered: sidebar.unansweredCount,
       }}

@@ -109,7 +109,7 @@ function MemberCard({ m, members, branches, onClose, onChanged }: { m: Member; m
       <div className="flex shrink-0 flex-wrap gap-2 border-t border-line px-4 py-2.5">
         {!isOwner && !m.disabledAt && <Button size="sm" variant="danger" icon={<UserMinus />} onClick={() => setDisableOpen(true)}>{t("disable")}</Button>}
         {!isOwner && m.role === "admin" && (
-          <Tooltip content={t("transferOwnerHint")}><span><Button size="sm" icon={<Crown />} onClick={() => toast("Письмо для подтверждения отправлено собственнику")}>{t("transferOwner")}</Button></span></Tooltip>
+          <Tooltip content={t("transferOwnerHint")}><span><Button size="sm" icon={<Crown />} disabled>{t("transferOwner")}</Button></span></Tooltip>
         )}
       </div>
       <ConfirmDialog open={disableOpen} onOpenChange={setDisableOpen} danger title={t("disableTitle", { name: m.name })} description={t("disableDesc")} confirmLabel={t("disable")} cancelLabel={tc("cancel")}
@@ -131,16 +131,19 @@ function InviteSheet({ open, onOpenChange, onDone }: { open: boolean; onOpenChan
   const tc = useTranslations("common");
   const [contact, setContact] = React.useState("");
   const [role, setRole] = React.useState<"admin" | "staff" | "accountant">("staff");
+  const [inviteUrl, setInviteUrl] = React.useState<string>();
   const [error, setError] = React.useState<string>();
   const [pending, start] = React.useTransition();
   const submit = () => start(async () => {
     const r = await inviteMember({ contact, role });
     if (!r.ok) { setError(r.error); return; }
+    if (r.data && "inviteUrl" in r.data && r.data.inviteUrl) { setInviteUrl(new URL(r.data.inviteUrl, window.location.origin).href); setError(undefined); onDone(); return; }
     toast.success(t("invitedOk")); setContact(""); setError(undefined); onOpenChange(false); onDone();
   });
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={t("inviteTitle")} width={440}
       footer={<><Button onClick={() => onOpenChange(false)}>{tc("cancel")}</Button><Button variant="primary" loading={pending} onClick={submit}>{t("invite")}</Button></>}>
+      {inviteUrl && <Field label={t("inviteLink")}><Input readOnly value={inviteUrl} onFocus={(e) => e.target.select()} /></Field>}
       <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="flex flex-col gap-3">
         <Field label={t("contact")} error={error}><Input autoFocus value={contact} onChange={(e) => setContact(e.target.value)} placeholder="name@company.kg / +996 …" aria-invalid={!!error} /></Field>
         <Field label={t("role")}><Select value={role} onChange={(e) => setRole(e.target.value as typeof role)}>{(["admin", "staff", "accountant"] as const).map((r) => <option key={r} value={r}>{te(`role.${r}`)}</option>)}</Select></Field>

@@ -1,0 +1,11 @@
+Django>=5.2.19,<5.3
+djangorestframework>=3.18,<3.19
+drf-spectacular>=0.30,<0.31
+psycopg[binary]>=3.3,<3.4
+dj-database-url>=3.1,<4
+celery>=5.7,<5.8
+redis>=8.1,<9
+gunicorn>=26.2,<27
+pyotp>=2.10,<3
+cryptography>=50,<51
+whitenoise>=6,<7

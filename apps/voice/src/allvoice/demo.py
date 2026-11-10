@@ -5,11 +5,12 @@ import json
 from pathlib import Path
 
 ROLES = {
+    "other": ("универсальная", "Демонстрационная компания", "Ассистент"),
     "autoservice": ("автосервис", "Автосервис «Мотор»", "Айгуль"),
-    "clinic": ("клиника", "Клиника «Здоровье»", "Алина"),
-    "salon": ("салон", "Салон «Лайм»", "Диана"),
-    "dental": ("стоматология", "Стоматология «Смайл»", "Мира"),
-    "polyclinic": ("поликлиника", "ЦСМ №7", "Нурия"),
+    "clinic": ("клиника", "Медцентр «Ала-Тоо»", "Алина"),
+    "salon": ("салон", "Салон «Лаванда»", "Диана"),
+    "dental": ("стоматология", "Стоматология «Улыбка»", "Мира"),
+    "polyclinic": ("поликлиника", "Городская поликлиника № 7", "Нурия"),
 }
 
 DEMO_GREETING = (
@@ -21,18 +22,18 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 def role_snapshot(role: str) -> dict:
-    """Снимок демо-роли. Автосервис — из packages/dialog/generated/demo-snapshot.json; остальные — из demo_roles."""
-    base = json.loads((ROOT / "packages/dialog/generated/demo-snapshot.json").read_text(encoding="utf-8"))
-    if role == "autoservice":
-        return base
-    _, name, assistant = ROLES[role]
-    base = {**base, "company": {**base["company"], "name": name, "sphere": role}, "style": {**base["style"], "assistantName": assistant, "greeting": f"{name}, я {assistant}, виртуальный помощник. Чем помочь?"}}
-    return base
+    """Shared isolated role snapshots generated from packages/dialog/src/demo-roles.ts."""
+    snapshots = json.loads((ROOT / 'packages/dialog/generated/demo-roles.json').read_text(encoding='utf-8'))
+    return snapshots.get(role, snapshots['other'])
 
 
 def detect_role(text: str) -> str | None:
-    t = text.lower()
-    for key, (word, *_ ) in ROLES.items():
-        if word[:5] in t:
-            return key
+    import re
+    t = text.lower().strip()
+    roles = ['autoservice', 'clinic', 'salon', 'dental', 'polyclinic', 'other']
+    if t in ['1', '2', '3', '4', '5', '6']:
+        return roles[int(t)-1]
+    for role, pattern in [('polyclinic', r'поликлиник|цсм|участков'), ('dental', r'стомат|зуб|дент'), ('salon', r'салон|красот|парикмах'), ('autoservice', r'автосервис|шиномонтаж|мотор'), ('clinic', r'клиник|медцентр|терапевт'), ('other', r'универсальн|другой бизнес')]:
+        if re.search(pattern, t):
+            return role
     return None

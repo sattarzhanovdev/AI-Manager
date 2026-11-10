@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeTelegram, normalizeWhatsApp, normalizeWidget, verifyMeta, type InboundMessage } from "@all/integrations";
 import { toE164 } from "@/lib/format";
-import { env, isSupabase } from "@/lib/env";
+import { env, isSupabase, isDjango } from "@/lib/env";
 import { db } from "@/lib/data/mock/store";
 import { inbound } from "@/lib/data/mock/chat";
 
@@ -16,7 +16,7 @@ const seen = new Set<string>();
 
 export async function GET(req: Request, { params }: { params: Promise<{ channel: string }> }) {
   // Верификация вебхука Meta
-  if (isSupabase) return new Response("not found", { status: 404 });
+  if (isSupabase || isDjango) return new Response("not found", { status: 404 });
   const { channel } = await params;
   const u = new URL(req.url);
   if (channel === "whatsapp" && process.env.META_VERIFY_TOKEN && u.searchParams.get("hub.verify_token") === process.env.META_VERIFY_TOKEN) return new Response(u.searchParams.get("hub.challenge") ?? "");
@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ channel:
 
 export async function POST(req: Request, { params }: { params: Promise<{ channel: string }> }) {
   // Входящие каналы в Hackathon MVP не подключены: публичный вебхук не принимает данные
-  if (isSupabase) return new Response("not found", { status: 404 });
+  if (isSupabase || isDjango) return new Response("not found", { status: 404 });
   const { channel } = await params;
   const raw = await req.text();
   let body: Record<string, unknown>;

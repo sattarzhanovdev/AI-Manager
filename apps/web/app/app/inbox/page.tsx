@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { isDisabledInMvp } from "@/lib/data/repo";
 import { MvpDisabled } from "@/components/mvp/mvp-disabled";
-import { listConversations } from "@/lib/data/queries";
+import { listConversations } from "@/lib/data/repo";
 import { env } from "@/lib/env";
 import { InboxView } from "@/components/inbox/inbox-view";
 
@@ -13,5 +13,5 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   if (isDisabledInMvp("inbox")) return <MvpDisabled />;
   if (s.member.role === "accountant") redirect("/app/billing");
   const sp = await searchParams;
-  return <InboxView conversations={listConversations(s)} me={s.userId} openId={sp.open} canSimulate={env.DATA_SOURCE === "mock"} />;
+  return <InboxView conversations={await listConversations(s)} me={s.userId} openId={sp.open} canSimulate={env.DATA_SOURCE !== "supabase"} />;
 }

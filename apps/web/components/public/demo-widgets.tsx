@@ -5,7 +5,7 @@ import { PhoneCall, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { CallTurn } from "@all/db";
 import type { DemoRecordingData } from "@/lib/demo-recordings";
-import type { DialogState } from "@all/dialog";
+import { detectDemoRole, type DemoRole, type DialogState } from "@all/dialog";
 import { demoChat } from "@/lib/actions";
 import { TestCall, type SendFn } from "../assistant/test-call";
 import { CallPlayer, Transcript, useCallPlayback } from "../calls/call-player";
@@ -16,9 +16,12 @@ export function BrowserCallButton({ label, className }: { label: string; classNa
   const [open, setOpen] = React.useState(false);
   // Публичное демо без входа: локальный движок по демо-анкете, состояние диалога — в браузере, в базу ничего не пишется
   const state = React.useRef<DialogState | undefined>(undefined);
+  const role = React.useRef<DemoRole>("autoservice");
   const send = React.useCallback<SendFn>(async ({ message }) => {
-    const r = await demoChat(message, state.current);
+    const nextRole = detectDemoRole(message);
+    const r = await demoChat(message, state.current, role.current);
     if (!r.ok) return r;
+    role.current = nextRole ?? role.current;
     state.current = r.data!.state;
     return { ok: true, data: { conversationId: "public-demo", text: r.data!.text, engine: "offline", tools: r.data!.toolCalls.map((x) => x.name) } };
   }, []);
@@ -31,7 +34,7 @@ export function BrowserCallButton({ label, className }: { label: string; classNa
           <Dialog.Title className="sr-only">{label}</Dialog.Title>
           <Dialog.Close className="absolute right-3 top-2.5 z-10 inline-flex size-7 items-center justify-center rounded-full text-white/60 hover:bg-white/10" aria-label="Закрыть"><X className="size-4" /></Dialog.Close>
           <p className="px-5 pt-10 text-xs text-white/60">{t("browserDemoDisclosure")}</p>
-          <TestCall title="Демо: автосервис «Мотор»" send={send} greeting="Здравствуйте! Это демо-линия ALL-менеджера, я Айгуль — виртуальный помощник автосервиса «Мотор». Спросите про цены или запишитесь." />
+          <TestCall title={t("demoRoleTitle")} send={send} greeting={t("demoRoleGreeting")} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

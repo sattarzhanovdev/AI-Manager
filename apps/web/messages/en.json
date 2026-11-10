@@ -15,6 +15,28 @@
     "simulationNoCrm": "This simulation does not create CRM leads or confirm appointments.",
     "tryAi": "Try AI yourself",
     "browserDemoNotice": "Try the browser scenario. The demo telephone line is not connected yet.",
-    "browserDemoDisclosure": "Scripted text demo · no LLM or CRM writes. Browser speech is used when supported."
+    "browserDemoDisclosure": "Scripted text demo · no LLM or CRM writes. Browser speech is used when supported.",
+    "demoRoleTitle": "ALL-manager demo",
+    "demoRoleGreeting": "Hello! I am an AI assistant. Choose a role: 1 auto repair, 2 clinic, 3 salon, 4 dental, 5 public clinic, 6 another business. All demo data is fictional."
+  },
+  "auth": {
+    "totpCode": "Authenticator code",
+    "totpSetup": "Add this key to your authenticator app and enter the code:",
+    "acceptTeamInvite": "Accept invitation",
+    "inviteName": "Your name",
+    "pilotRegistration": "Private pilot: the platform team provisions companies. Sign in with your account or accept an invitation.",
+    "pilotPasswordReset": "Contact the platform administrator to restore access.",
+    "passwordHint": "Access is provided by your company owner or the platform team."
+  },
+  "team": {
+    "inviteLink": "Copy this invitation link and share it with your teammate"
+  },
+  "settings": {
+    "revokeAllSessions": "Sign out on all devices",
+    "twofaOptional": "2FA is optional for this role",
+    "sessionListUnavailable": "Session list is available in Django mode."
+  },
+  "common": {
+    "cabinetLoadError": "Could not load data. Wait a moment and try again."
   }
 }
